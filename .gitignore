@@ -1,0 +1,17 @@
+# Windows system files - DO NOT COMMIT
+AppData/
+NTUSER.DAT*
+ntuser.*
+*.regtrans-ms
+*.blf
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Environment variables (never commit secrets!)
+.env
+
+# Large files we don't need in git
+ngrok.exe
+ngrok.zip

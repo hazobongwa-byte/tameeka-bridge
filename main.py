@@ -8,7 +8,6 @@ async def websocket_handler(request):
  
     print("? Vapi connected!") 
  
-    # Send initial session message (Vapi expects this) 
     await ws.send_str(json.dumps({ 
         "type": "session", 
         "session": { 
@@ -21,7 +20,6 @@ async def websocket_handler(request):
         if msg.type == WSMsgType.TEXT: 
             print(f"Received: {msg.data}") 
         elif msg.type == WSMsgType.BINARY: 
-            # Audio data - send fake transcription for testing 
             response = { 
                 "type": "transcription", 
                 "transcription": "I would like to book an appointment", 
@@ -29,7 +27,7 @@ async def websocket_handler(request):
                 "channel": "customer" 
             } 
             await ws.send_str(json.dumps(response)) 
-            print("?? Sent test transcription") 
+            print("? Sent test transcription") 
         elif msg.type == WSMsgType.ERROR: 
             print(f"WebSocket error: {ws.exception()}") 
  

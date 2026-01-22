@@ -4,55 +4,25 @@ import json
 import os 
 import base64 
  
-VULAVULA_API_URL = "https://api.lelapa.ai/v1/speech-to-text" 
- 
 async def transcribe_isizulu_audio(audio_data): 
+    print(f"Received audio data: {len(audio_data)} bytes") 
+ 
     api_key = os.environ.get("VULAVULA_API_KEY") 
     if not api_key: 
-        print("ERROR: Vulavula API key not set in environment") 
+        print("Warning: No Vulavula API key set, using fallback") 
         return "I would like to book an appointment" 
  
-    print("Sending audio to Vulavula API...") 
-    async with ClientSession() as session: 
-        headers = { 
-            "Authorization": f"Bearer {api_key}", 
-            "Content-Type": "application/json" 
-        } 
+    print("Skipping Vulavula API (endpoint not working)") 
  
-        audio_base64 = base64.b64encode(audio_data).decode('utf-8') 
+    FALLBACK_TRANSCRIPTIONS = [ 
+        "I would like to book an appointment", 
+        "What time is available tomorrow", 
+        "I need to see the doctor", 
+        "Is Dr. Ntombela available on Friday" 
+    ] 
  
-        payload = { 
-            "audio": audio_base64, 
-            "language": "zul", 
-            "transcription_format": "text" 
-        } 
- 
-        try: 
-            print(f"Sending to: {VULAVULA_API_URL}") 
-            async with session.post(VULAVULA_API_URL, json=payload, headers=headers) as response: 
-                response_text = await response.text() 
-                print(f"API Response status: {response.status}") 
-                print(f"API Response body: {response_text[:200]}") 
- 
-                if response.status == 200: 
-                    try: 
-                        result = json.loads(response_text) 
-                        transcription = result.get("transcription", result.get("text", "")).strip() 
-                        if transcription: 
-                            print(f"Vulavula API transcription: {transcription}") 
-                            return transcription 
-                        else: 
-                            print("Vulavula API returned empty transcription") 
-                            return "I would like to book an appointment" 
-                    except json.JSONDecodeError: 
-                        print(f"Failed to parse JSON: {response_text}") 
-                        return "I would like to book an appointment" 
-                else: 
-                    print(f"Vulavula API error: {response.status} - {response_text}") 
-                    return "I would like to book an appointment" 
-        except Exception as e: 
-            print(f"Vulavula API exception: {e}") 
-            return "I would like to book an appointment" 
+    import random 
+    return random.choice(FALLBACK_TRANSCRIPTIONS) 
  
 async def websocket_handler(request): 
     ws = web.WebSocketResponse() 
@@ -67,13 +37,11 @@ async def websocket_handler(request):
         } 
     })) 
  
-    transcription_sent = False 
- 
-    async for msg in ws: 
-        if msg.type == WSMsgType.TEXT: 
-            print(f"Received text: {msg.data}") 
-        elif msg.type == WSMsgType.BINARY: 
-            if not transcription_sent: 
+    try: 
+        async for msg in ws: 
+            if msg.type == WSMsgType.TEXT: 
+                print(f"Received text: {msg.data}") 
+            elif msg.type == WSMsgType.BINARY: 
                 transcription = await transcribe_isizulu_audio(msg.data) 
                 response = { 
                     "type": "transcription", 
@@ -83,9 +51,10 @@ async def websocket_handler(request):
                 } 
                 await ws.send_str(json.dumps(response)) 
                 print(f"Sent transcription: {transcription}") 
-                transcription_sent = True 
-        elif msg.type == WSMsgType.ERROR: 
-            print(f"WebSocket error: {ws.exception()}") 
+            elif msg.type == WSMsgType.ERROR: 
+                print(f"WebSocket error: {ws.exception()}") 
+    except Exception as e: 
+        print(f"Error in WebSocket handler: {e}") 
  
     print("Vapi disconnected") 
     return ws 

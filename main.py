@@ -1,49 +1,76 @@
 import asyncio 
-from aiohttp import web, WSMsgType, ClientSession 
+from aiohttp import web, WSMsgType 
 import json 
 import os 
 import base64 
 import random 
+from google.cloud import speech 
+import io 
  
-MOCK_TRANSCRIPTIONS = [ 
-    "I would like to book an appointment", 
-    "I need to see the doctor", 
-    "What time is available tomorrow", 
-    "Is Dr. Ntombela available on Friday", 
-    "Can I book for next week", 
-    "I need a checkup" 
-] 
+GOOGLE_CREDENTIALS = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS_JSON") 
  
 async def transcribe_isizulu_audio(audio_data): 
     print(f"Received audio: {len(audio_data)} bytes") 
-    transcription = random.choice(MOCK_TRANSCRIPTIONS) 
-    print(f"Mock transcription: {transcription}") 
-    return transcription 
+ 
+    if not GOOGLE_CREDENTIALS: 
+        print("Google credentials not found in environment") 
+        FALLBACK = ["I would like to book an appointment"] 
+        return random.choice(FALLBACK) 
+ 
+    try: 
+        with open("google-credentials.json", "w") as f: 
+            f.write(GOOGLE_CREDENTIALS) 
+ 
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "google-credentials.json" 
+ 
+        client = speech.SpeechClient() 
+ 
+        config = speech.RecognitionConfig( 
+            encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16, 
+            sample_rate_hertz=16000, 
+            language_code="zu-ZA", 
+            enable_automatic_punctuation=True, 
+        ) 
+ 
+        audio = speech.RecognitionAudio(content=audio_data) 
+ 
+        print("Sending to Google Cloud Speech-to-Text...") 
+        response = client.recognize(config=config, audio=audio) 
+ 
+        transcriptions = [] 
+        for result in response.results: 
+            transcriptions.append(result.alternatives[0].transcript) 
+ 
+        if transcriptions: 
+            transcription = " ".join(transcriptions) 
+            print(f"Google Cloud transcription: {transcription}") 
+            return transcription 
+        else: 
+            print("No transcription returned") 
+            return "I would like to book an appointment" 
+ 
+    except Exception as e: 
+        print(f"Google Cloud error: {e}") 
+        FALLBACK = ["I would like to book an appointment"] 
+        return random.choice(FALLBACK) 
  
 async def websocket_handler(request): 
-    print("New WebSocket connection attempt") 
     ws = web.WebSocketResponse() 
     await ws.prepare(request) 
     print("Vapi connected!") 
  
-    session_config = { 
+    await ws.send_str(json.dumps({ 
         "type": "session", 
         "session": { 
             "id": "tameeka_session", 
             "language": "zul" 
         } 
-    } 
-    await ws.send_str(json.dumps(session_config)) 
-    print("Sent session configuration") 
+    })) 
  
     try: 
         async for msg in ws: 
             if msg.type == WSMsgType.TEXT: 
-                try: 
-                    data = json.loads(msg.data) 
-                    print(f"Received text message: {data}") 
-                except: 
-                    print(f"Received raw text: {msg.data}") 
+                print(f"Received: {msg.data}") 
             elif msg.type == WSMsgType.BINARY: 
                 transcription = await transcribe_isizulu_audio(msg.data) 
                 response = { 
@@ -52,18 +79,17 @@ async def websocket_handler(request):
                     "language": "zul", 
                     "channel": "customer" 
                 } 
-                print(f"Sending transcription: {transcription}") 
                 await ws.send_str(json.dumps(response)) 
+                print(f"Sent: {transcription}") 
             elif msg.type == WSMsgType.CLOSE: 
-                print("WebSocket closed by client") 
+                print("WebSocket closed") 
                 break 
             elif msg.type == WSMsgType.ERROR: 
                 print(f"WebSocket error: {ws.exception()}") 
     except Exception as e: 
-        print(f"Error in WebSocket: {e}") 
-    finally: 
-        print("Vapi disconnected") 
-        await ws.close() 
+        print(f"Error: {e}") 
+ 
+    print("Vapi disconnected") 
     return ws 
  
 async def health_check(request): 
@@ -83,5 +109,4 @@ app.router.add_get('/', health_check)
  
 if __name__ == '__main__': 
     port = int(os.environ.get("PORT", 8000)) 
-    print(f"Starting server on port {port}") 
     web.run_app(app, port=port, host='0.0.0.0') 

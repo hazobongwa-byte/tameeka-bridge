@@ -1,55 +1,47 @@
-from aiohttp import web, WSMsgType
 import json
 import os
-import base64
+import asyncio
+import traceback
+import logging
+from aiohttp import web, WSMsgType
 from google.cloud import speech_v1
-from google.oauth2 import service_account
+from google.api_core.exceptions import PermissionDenied
 
-def get_speech_client():
-    credentials_json = os.environ.get("GOOGLE_CREDENTIALS_JSON")
-    if credentials_json:
-        try:
-            credentials_info = json.loads(credentials_json)
-            credentials = service_account.Credentials.from_service_account_info(credentials_info)
-            return speech_v1.SpeechClient(credentials=credentials)
-        except json.JSONDecodeError:
-            return None
-    
-    try:
-        return speech_v1.SpeechClient()
-    except Exception:
-        return None
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
-async def transcribe_audio(audio_bytes, language_code="zu-ZA"):
-    client = get_speech_client()
-    if not client:
-        return "Error: Google Cloud client not configured", 0.0
-    
-    config = speech_v1.RecognitionConfig(
-        encoding=speech_v1.RecognitionConfig.AudioEncoding.MULAW,
-        sample_rate_hertz=8000,
-        language_code=language_code,
-        enable_automatic_punctuation=True,
-        model="phone_call",
-        use_enhanced=True,
-        audio_channel_count=1,
-    )
-    
-    audio = speech_v1.RecognitionAudio(content=audio_bytes)
-    
+client = None
+project_info = {}
+
+if 'GOOGLE_CREDENTIALS_JSON' in os.environ:
     try:
-        response = client.recognize(config=config, audio=audio)
+        credentials_json = os.environ['GOOGLE_CREDENTIALS_JSON']
+        credentials_info = json.loads(credentials_json)
+        project_info = {
+            'project_id': credentials_info.get('project_id'),
+            'client_email': credentials_info.get('client_email')
+        }
         
-        if not response.results:
-            return "I'm sorry, I didn't catch that. Could you please repeat?", 0.5
-            
-        result = response.results[0]
-        alternative = result.alternatives[0]
-        
-        return alternative.transcript, alternative.confidence
+        client = speech_v1.SpeechClient.from_service_account_info(credentials_info)
+        print("Google Speech-to-Text client initialized successfully")
         
     except Exception as e:
-        return f"Error: {str(e)}", 0.0
+        print(f"Failed to initialize Google Cloud: {e}")
+        client = None
+else:
+    print("GOOGLE_CREDENTIALS_JSON not set!")
+
+async def health_check(request):
+    return web.json_response({
+        "status": "online",
+        "bridge": "tameeka-isizulu",
+        "google_cloud": {
+            "configured": client is not None,
+            "project": project_info.get('project_id'),
+            "service_account": project_info.get('client_email'),
+            "role": "Cloud Speech Client"
+        }
+    })
 
 async def websocket_handler(request):
     ws = web.WebSocketResponse()
@@ -57,56 +49,64 @@ async def websocket_handler(request):
     
     try:
         async for msg in ws:
-            if msg.type == WSMsgType.TEXT:
-                data = json.loads(msg.data)
-                msg_type = data.get('type', 'unknown')
+            if msg.type == WSMsgType.BINARY:
+                print(f"Received audio: {len(msg.data)} bytes")
                 
-                if msg_type == "session":
-                    await ws.send_str(json.dumps({
-                        "type": "session",
-                        "session": {
-                            "id": data.get('session', {}).get('id', 'default'),
-                            "language": "zu-ZA"
-                        }
-                    }))
+                if not client:
+                    await ws.send_str("ERROR: Google Cloud not configured")
+                    continue
                 
-                elif msg_type == "end-of-call-report":
-                    pass
+                try:
+                    config = speech_v1.RecognitionConfig(
+                        encoding=speech_v1.RecognitionConfig.AudioEncoding.MULAW,
+                        sample_rate_hertz=8000,
+                        language_code="zu-ZA",
+                        model="phone_call",
+                        enable_automatic_punctuation=True
+                    )
                     
-            elif msg.type == WSMsgType.BINARY:
-                audio_bytes = msg.data
-                transcript, confidence = await transcribe_audio(audio_bytes)
+                    audio = speech_v1.RecognitionAudio(content=msg.data)
+                    
+                    print("Calling Google Cloud Speech-to-Text API...")
+                    response = client.recognize(config=config, audio=audio)
+                    
+                    print("API Response received")
+                    
+                    for result in response.results:
+                        transcript = result.alternatives[0].transcript.strip()
+                        if transcript:
+                            print(f"Transcription: {transcript}")
+                            await ws.send_str(transcript)
+                            break
+                    else:
+                        await ws.send_str("(listening...)")
                 
-                response = {
-                    "type": "transcription",
-                    "transcription": {
-                        "text": transcript,
-                        "confidence": confidence
-                    }
-                }
-                await ws.send_str(json.dumps(response))
+                except PermissionDenied as e:
+                    print("Permission denied error")
+                    await ws.send_str("ERROR: Service account lacks permissions.")
                 
-    except Exception:
-        pass
+                except Exception as e:
+                    print(f"API Error: {type(e).__name__}: {e}")
+                    await ws.send_str(f"ERROR: {type(e).__name__}")
+            
+            elif msg.type == WSMsgType.TEXT:
+                print(f"Text from Vapi: {msg.data}")
+            
+            elif msg.type == WSMsgType.CLOSE:
+                print("WebSocket closing")
+                break
     
-    return ws
-
-async def health_check(request):
-    return web.Response(
-        text=json.dumps({
-            "status": "online",
-            "service": "Tameeka IsiZulu Bridge",
-            "language": "isiZulu (zu-ZA)",
-            "google_cloud": "configured" if os.environ.get("GOOGLE_CREDENTIALS_JSON") else "not_configured"
-        }),
-        content_type='application/json'
-    )
+    except Exception as e:
+        print(f"WebSocket error: {e}")
+    
+    finally:
+        return ws
 
 app = web.Application()
 app.router.add_get('/ws', websocket_handler)
-app.router.add_get('/', health_check)
 app.router.add_get('/health', health_check)
 
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 10000))
-    web.run_app(app, port=port, host='0.0.0.0')
+    port = int(os.environ.get('PORT', 8080))
+    print(f"Starting server on port {port}")
+    web.run_app(app, port=port, access_log=None)

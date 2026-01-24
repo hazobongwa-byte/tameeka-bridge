@@ -1,38 +1,31 @@
 import json
 import os
-import asyncio
 from aiohttp import web, WSMsgType
-from datetime import datetime, timezone
 
 async def health_check(request):
     return web.json_response({
         "status": "online",
         "service": "tameeka-bridge",
-        "mode": "fixed-response-single",
-        "timestamp": datetime.now(timezone.utc).isoformat()
+        "mode": "simple-fixed-response"
     })
 
 async def websocket_handler(request):
     ws = web.WebSocketResponse()
     await ws.prepare(request)
     
-    transcription_sent = False
+    print("=== NEW CALL STARTED ===")
     
-    current_time = datetime.now(timezone.utc).strftime('%H:%M:%S')
-    print(f"\n[{current_time}] New Vapi connection")
+    sent = False
     
     try:
         await ws.send_str(json.dumps({
             "type": "status",
-            "status": "connected",
-            "message": "Bridge ready"
+            "status": "connected"
         }))
         
         async for msg in ws:
-            current_time = datetime.now(timezone.utc).strftime('%H:%M:%S')
-            
-            if msg.type == WSMsgType.BINARY and not transcription_sent:
-                print(f"[{current_time}] Received {len(msg.data)} bytes of audio")
+            if msg.type == WSMsgType.BINARY and not sent:
+                print(f"Audio received: {len(msg.data)} bytes")
                 
                 transcription = {
                     "type": "transcription",
@@ -43,21 +36,15 @@ async def websocket_handler(request):
                     }
                 }
                 
-                print(f"[{current_time}] Sending: 'book a new appointment'")
+                print("SENDING: 'book a new appointment'")
                 await ws.send_str(json.dumps(transcription))
-                print(f"[{current_time}] Transcription sent successfully!")
-                transcription_sent = True
-                
-            elif msg.type == WSMsgType.TEXT:
-                data = json.loads(msg.data)
-                print(f"[{current_time}] Text message: {data.get('type', 'unknown')}")
+                print("TRANSCRIPTION SENT - ONLY ONCE")
+                sent = True
                 
     except Exception as e:
-        current_time = datetime.now(timezone.utc).strftime('%H:%M:%S')
-        print(f"[{current_time}] Error: {e}")
+        print(f"Error: {e}")
     
-    current_time = datetime.now(timezone.utc).strftime('%H:%M:%S')
-    print(f"[{current_time}] Connection closed")
+    print("=== CALL ENDED ===")
     return ws
 
 app = web.Application()
@@ -66,5 +53,5 @@ app.router.add_get('/health', health_check)
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
-    print(f"Starting single-response bridge on port {port}")
-    web.run_app(app, port=port, access_log=None)
+    print(f"Bridge server starting on port {port}")
+    web.run_app(app, port=port)

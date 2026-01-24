@@ -2,21 +2,24 @@ import json
 import os
 import asyncio
 from aiohttp import web, WSMsgType
-from datetime import datetime
+from datetime import datetime, timezone
 
 async def health_check(request):
     return web.json_response({
         "status": "online",
         "service": "tameeka-bridge",
-        "mode": "fixed-response",
-        "timestamp": datetime.utcnow().isoformat()
+        "mode": "fixed-response-single",
+        "timestamp": datetime.now(timezone.utc).isoformat()
     })
 
 async def websocket_handler(request):
     ws = web.WebSocketResponse()
     await ws.prepare(request)
     
-    print(f"\n[{datetime.utcnow().strftime('%H:%M:%S')}] New Vapi connection")
+    transcription_sent = False
+    
+    current_time = datetime.now(timezone.utc).strftime('%H:%M:%S')
+    print(f"\n[{current_time}] New Vapi connection")
     
     try:
         await ws.send_str(json.dumps({
@@ -26,8 +29,10 @@ async def websocket_handler(request):
         }))
         
         async for msg in ws:
-            if msg.type == WSMsgType.BINARY:
-                print(f"[{datetime.utcnow().strftime('%H:%M:%S')}] Received {len(msg.data)} bytes of audio")
+            current_time = datetime.now(timezone.utc).strftime('%H:%M:%S')
+            
+            if msg.type == WSMsgType.BINARY and not transcription_sent:
+                print(f"[{current_time}] Received {len(msg.data)} bytes of audio")
                 
                 transcription = {
                     "type": "transcription",
@@ -38,18 +43,21 @@ async def websocket_handler(request):
                     }
                 }
                 
-                print(f"[{datetime.utcnow().strftime('%H:%M:%S')}] Sending: 'book a new appointment'")
+                print(f"[{current_time}] Sending: 'book a new appointment'")
                 await ws.send_str(json.dumps(transcription))
-                print(f"[{datetime.utcnow().strftime('%H:%M:%S')}] Transcription sent successfully!")
+                print(f"[{current_time}] Transcription sent successfully!")
+                transcription_sent = True
                 
             elif msg.type == WSMsgType.TEXT:
                 data = json.loads(msg.data)
-                print(f"[{datetime.utcnow().strftime('%H:%M:%S')}] Text message: {data.get('type', 'unknown')}")
+                print(f"[{current_time}] Text message: {data.get('type', 'unknown')}")
                 
     except Exception as e:
-        print(f"[{datetime.utcnow().strftime('%H:%M:%S')}] Error: {e}")
+        current_time = datetime.now(timezone.utc).strftime('%H:%M:%S')
+        print(f"[{current_time}] Error: {e}")
     
-    print(f"[{datetime.utcnow().strftime('%H:%M:%S')}] Connection closed")
+    current_time = datetime.now(timezone.utc).strftime('%H:%M:%S')
+    print(f"[{current_time}] Connection closed")
     return ws
 
 app = web.Application()
@@ -58,5 +66,5 @@ app.router.add_get('/health', health_check)
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
-    print(f"Starting fixed-response bridge on port {port}")
+    print(f"Starting single-response bridge on port {port}")
     web.run_app(app, port=port, access_log=None)

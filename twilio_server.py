@@ -4,12 +4,48 @@ app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return jsonify({"message": "Twilio bridge server ready"})
+    return jsonify({"message": "Twilio bridge server ready - TEST ENDPOINTS: /test-get?speech=book or /test-post"})
+
+@app.route('/test-get', methods=['GET'])
+def test_get():
+    speech = request.args.get('speech', '').lower().strip()
+    print(f"TEST GET: '{speech}'")
+    
+    book_words = ['book', 'bhuka', 'ukubhuka', 'ngifuna', 'ngicela']
+    reschedule_words = ['reschedule', 'hlela', 'shintsha']
+    question_words = ['question', 'umbuzo', 'buzisa']
+    
+    if any(word in speech for word in book_words):
+        return jsonify({'action': 'book_appointment', 'method': 'GET', 'heard': speech})
+    elif any(word in speech for word in reschedule_words):
+        return jsonify({'action': 'reschedule', 'method': 'GET', 'heard': speech})
+    elif any(word in speech for word in question_words):
+        return jsonify({'action': 'question', 'method': 'GET', 'heard': speech})
+    else:
+        return jsonify({'action': 'unknown', 'method': 'GET', 'heard': speech})
+
+@app.route('/test-post', methods=['POST'])
+def test_post():
+    speech = request.form.get('speech', '').lower().strip()
+    print(f"TEST POST: '{speech}'")
+    
+    book_words = ['book', 'bhuka', 'ukubhuka', 'ngifuna', 'ngicela']
+    reschedule_words = ['reschedule', 'hlela', 'shintsha']
+    question_words = ['question', 'umbuzo', 'buzisa']
+    
+    if any(word in speech for word in book_words):
+        return jsonify({'action': 'book_appointment', 'method': 'POST', 'heard': speech})
+    elif any(word in speech for word in reschedule_words):
+        return jsonify({'action': 'reschedule', 'method': 'POST', 'heard': speech})
+    elif any(word in speech for word in question_words):
+        return jsonify({'action': 'question', 'method': 'POST', 'heard': speech})
+    else:
+        return jsonify({'action': 'unknown', 'method': 'POST', 'heard': speech})
 
 @app.route('/twilio-webhook', methods=['POST'])
 def twilio_webhook():
     body_data = request.form.get('body', '')
-    print(f"DEBUG: Raw body data: '{body_data}'")
+    print(f"TWILIO: Raw body data: '{body_data}'")
     
     speech_result = ''
     
@@ -19,42 +55,27 @@ def twilio_webhook():
             speech_result = speech_result.split('&')[0]
     
     speech_result = speech_result.lower().strip()
-    print(f"DEBUG: Extracted speech: '{speech_result}'")
+    print(f"TWILIO: Extracted speech: '{speech_result}'")
     
     if not speech_result:
-        print("DEBUG: Speech is EMPTY")
+        print("TWILIO: Speech is EMPTY")
         return jsonify({'action': 'unknown'})
     
-    book_words = [
-        'book', 'new', 'appointment', 'booking', 'make appointment',
-        'bhuka', 'ukubhuka', 'ngifuna', 'funa', 'ngicela', 'cela',
-        'ngicela ukubhuka', 'ngifuna ukubhuka', 'bhukha', 'ukubhukha',
-        'booking', 'schedule'
-    ]
-    
-    reschedule_words = [
-        'reschedule', 'change', 'move', 'postpone',
-        'hlela', 'shintsha', 'kabusha', 'hlela kabusha',
-        'guqula', 'shintsha isikhathi'
-    ]
-    
-    question_words = [
-        'question', 'ask', 'inquiry', 'help',
-        'umbuzo', 'nginombuzo', 'buzo', 'buzisa',
-        'ndaba', 'nginendaba'
-    ]
+    book_words = ['book', 'bhuka', 'ukubhuka', 'ngifuna', 'ngicela']
+    reschedule_words = ['reschedule', 'hlela', 'shintsha']
+    question_words = ['question', 'umbuzo', 'buzisa']
     
     if any(word in speech_result for word in book_words):
-        print("DEBUG: Matched BOOK_APPOINTMENT")
+        print("TWILIO: Matched BOOK_APPOINTMENT")
         return jsonify({'action': 'book_appointment'})
     elif any(word in speech_result for word in reschedule_words):
-        print("DEBUG: Matched RESCHEDULE")
+        print("TWILIO: Matched RESCHEDULE")
         return jsonify({'action': 'reschedule'})
     elif any(word in speech_result for word in question_words):
-        print("DEBUG: Matched QUESTION")
+        print("TWILIO: Matched QUESTION")
         return jsonify({'action': 'question'})
     else:
-        print("DEBUG: No match - returning UNKNOWN")
+        print("TWILIO: No match")
         return jsonify({'action': 'unknown'})
 
 if __name__ == '__main__':

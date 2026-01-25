@@ -17,7 +17,16 @@ def twilio_webhook():
         speech = request.args.get('SpeechResult', '')
         speech_result = speech.lower()
     else:
-        speech_result = request.form.get('SpeechResult', '').lower()
+        body_data = request.form.get('body', '')
+        print(f"Raw body data: '{body_data}'")
+        
+        speech_result = ''
+        if 'SpeechResult=' in body_data:
+            speech_result = body_data.split('SpeechResult=')[1]
+            if '&' in speech_result:
+                speech_result = speech_result.split('&')[0]
+        
+        speech_result = speech_result.lower().strip()
     
     print(f"Extracted speech: '{speech_result}'")
     

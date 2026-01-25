@@ -11,9 +11,26 @@ def test_get():
     speech = request.args.get('speech', '').lower().strip()
     print(f"TEST GET: '{speech}'")
     
-    book_words = ['book', 'bhuka', 'ukubhuka', 'ngifuna', 'ngicela']
-    reschedule_words = ['reschedule', 'hlela', 'shintsha']
-    question_words = ['question', 'umbuzo', 'buzisa']
+    book_words = [
+        'book', 'books', 'booking', 'booked', 'appointment', 'appointments',
+        'bhuka', 'bhukha', 'bhukka', 'bukha', 'booka', 'buka',
+        'ukubhuka', 'ngifuna', 'ngicela', 'funa', 'cela',
+        'make appointment', 'new appointment', 'schedule'
+    ]
+    
+    reschedule_words = [
+        'reschedule', 're schedule', 'rice schedule', 'ricehedul',
+        'change', 'changes', 'changing', 'move', 'moving',
+        'hlela', 'hlelah', 'shintsha', 'shintshah', 'guqula',
+        'change appointment', 'move appointment', 'postpone'
+    ]
+    
+    question_words = [
+        'question', 'questions', 'questio', 'questiom',
+        'ask', 'asking', 'inquiry', 'help',
+        'umbuzo', 'umbuza', 'nginombuzo', 'buzisa', 'buzo',
+        'have question', 'got question', 'need help'
+    ]
     
     if any(word in speech for word in book_words):
         return jsonify({'action': 'book_appointment', 'method': 'GET', 'heard': speech})
@@ -29,9 +46,26 @@ def test_post():
     speech = request.form.get('speech', '').lower().strip()
     print(f"TEST POST: '{speech}'")
     
-    book_words = ['book', 'bhuka', 'ukubhuka', 'ngifuna', 'ngicela']
-    reschedule_words = ['reschedule', 'hlela', 'shintsha']
-    question_words = ['question', 'umbuzo', 'buzisa']
+    book_words = [
+        'book', 'books', 'booking', 'booked', 'appointment', 'appointments',
+        'bhuka', 'bhukha', 'bhukka', 'bukha', 'booka', 'buka',
+        'ukubhuka', 'ngifuna', 'ngicela', 'funa', 'cela',
+        'make appointment', 'new appointment', 'schedule'
+    ]
+    
+    reschedule_words = [
+        'reschedule', 're schedule', 'rice schedule', 'ricehedul',
+        'change', 'changes', 'changing', 'move', 'moving',
+        'hlela', 'hlelah', 'shintsha', 'shintshah', 'guqula',
+        'change appointment', 'move appointment', 'postpone'
+    ]
+    
+    question_words = [
+        'question', 'questions', 'questio', 'questiom',
+        'ask', 'asking', 'inquiry', 'help',
+        'umbuzo', 'umbuza', 'nginombuzo', 'buzisa', 'buzo',
+        'have question', 'got question', 'need help'
+    ]
     
     if any(word in speech for word in book_words):
         return jsonify({'action': 'book_appointment', 'method': 'POST', 'heard': speech})
@@ -61,9 +95,26 @@ def twilio_webhook():
         print("TWILIO: Speech is EMPTY")
         return jsonify({'action': 'unknown'})
     
-    book_words = ['book', 'bhuka', 'ukubhuka', 'ngifuna', 'ngicela']
-    reschedule_words = ['reschedule', 'hlela', 'shintsha']
-    question_words = ['question', 'umbuzo', 'buzisa']
+    book_words = [
+        'book', 'books', 'booking', 'booked', 'appointment', 'appointments',
+        'bhuka', 'bhukha', 'bhukka', 'bukha', 'booka', 'buka',
+        'ukubhuka', 'ngifuna', 'ngicela', 'funa', 'cela',
+        'make appointment', 'new appointment', 'schedule'
+    ]
+    
+    reschedule_words = [
+        'reschedule', 're schedule', 'rice schedule', 'ricehedul',
+        'change', 'changes', 'changing', 'move', 'moving',
+        'hlela', 'hlelah', 'shintsha', 'shintshah', 'guqula',
+        'change appointment', 'move appointment', 'postpone'
+    ]
+    
+    question_words = [
+        'question', 'questions', 'questio', 'questiom',
+        'ask', 'asking', 'inquiry', 'help',
+        'umbuzo', 'umbuza', 'nginombuzo', 'buzisa', 'buzo',
+        'have question', 'got question', 'need help'
+    ]
     
     if any(word in speech_result for word in book_words):
         print("TWILIO: Matched BOOK_APPOINTMENT")

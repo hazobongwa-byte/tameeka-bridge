@@ -8,13 +8,18 @@ def home():
 
 @app.route('/twilio-webhook', methods=['POST', 'GET'])
 def twilio_webhook():
+    print("=== NEW REQUEST ===")
+    print(f"Method: {request.method}")
+    print(f"Form data: {dict(request.form)}")
+    print(f"Args data: {dict(request.args)}")
+    
     if request.method == 'GET':
         speech = request.args.get('SpeechResult', '')
         speech_result = speech.lower()
     else:
         speech_result = request.form.get('SpeechResult', '').lower()
     
-    print(f"TWILIO WEBHOOK: Received speech: '{speech_result}'")
+    print(f"Extracted speech: '{speech_result}'")
     
     if any(word in speech_result for word in ['book', 'new', 'bhuka', 'ngifuna ukubhuka']):
         return jsonify({'action': 'book_appointment'})

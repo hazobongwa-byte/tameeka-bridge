@@ -14,7 +14,7 @@ def twilio_webhook():
     else:
         speech_result = request.form.get('SpeechResult', '').lower()
     
-    print(f"Received speech: '{speech_result}'")
+    print(f"TWILIO WEBHOOK: Received speech: '{speech_result}'")
     
     if any(word in speech_result for word in ['book', 'new', 'bhuka', 'ngifuna ukubhuka']):
         return jsonify({'action': 'book_appointment'})

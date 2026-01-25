@@ -25,9 +25,24 @@ def twilio_webhook():
         print("DEBUG: Speech is EMPTY")
         return jsonify({'action': 'unknown'})
     
-    book_words = ['book', 'new', 'appointment', 'booking', 'bhuka', 'ukubhuka', 'ngifuna']
-    reschedule_words = ['reschedule', 'change', 'move', 'hlela', 'shintsha', 'kabusha']
-    question_words = ['question', 'ask', 'umbuzo', 'nginombuzo']
+    book_words = [
+        'book', 'new', 'appointment', 'booking', 'make appointment',
+        'bhuka', 'ukubhuka', 'ngifuna', 'funa', 'ngicela', 'cela',
+        'ngicela ukubhuka', 'ngifuna ukubhuka', 'bhukha', 'ukubhukha',
+        'booking', 'schedule'
+    ]
+    
+    reschedule_words = [
+        'reschedule', 'change', 'move', 'postpone',
+        'hlela', 'shintsha', 'kabusha', 'hlela kabusha',
+        'guqula', 'shintsha isikhathi'
+    ]
+    
+    question_words = [
+        'question', 'ask', 'inquiry', 'help',
+        'umbuzo', 'nginombuzo', 'buzo', 'buzisa',
+        'ndaba', 'nginendaba'
+    ]
     
     if any(word in speech_result for word in book_words):
         print("DEBUG: Matched BOOK_APPOINTMENT")

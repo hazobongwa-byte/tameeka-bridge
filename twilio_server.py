@@ -4,24 +4,49 @@ app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return jsonify({"message": "Fixed assistant: book, change, question"})
+    return jsonify({"message": "Assistant understands full Zulu sentences"})
 
 @app.route('/test-get', methods=['GET'])
 def test_get():
     speech = request.args.get('speech', '').lower().strip()
     
-    book_words = ['book', 'bhuka', 'appointment', 'booking', 'ngifuna', 'ngicela']
-    change_words = ['change', 'change appointment', 'move', 'shintsha', 'hlela', 'guqula', 'reschedule']
-    question_words = ['question', 'ask', 'umbuzo', 'buzisa', 'nginombuzo']
+    book_phrases = [
+        'book', 'booking', 'appointment', 'new appointment',
+        'bhuka', 'ukubhuka', 'ngifuna ukubhuka', 'ngicela ukubhuka',
+        'bengisacela ukubhuka', 'bengisacela uku bhuka',
+        'bengisacela uku bhuka i-appointment entsha',
+        'bengisacela ungibhukise', 'awungibhukise',
+        'ngifuna ukubhuka', 'ngicela ukubhuka'
+    ]
     
-    if any(word in speech for word in book_words):
-        return jsonify({'action': 'book_appointment', 'heard': speech})
-    elif any(word in speech for word in change_words):
-        return jsonify({'action': 'reschedule', 'heard': speech})
-    elif any(word in speech for word in question_words):
-        return jsonify({'action': 'question', 'heard': speech})
-    else:
-        return jsonify({'action': 'unknown', 'heard': speech})
+    change_phrases = [
+        'change', 'change appointment', 'move', 'reschedule',
+        'shintsha', 'hlela', 'guqula', 'ukushintsha',
+        'ngifuna ukushintsha', 'ngicela ukushintsha'
+    ]
+    
+    question_phrases = [
+        'question', 'ask', 'inquiry', 'help',
+        'umbuzo', 'nginomubuzo', 'ngonombuzo',
+        'bengisacela ukubuza', 'ngifuna ukubuza',
+        'nginombuzo', 'nginendaba', 'ndaba'
+    ]
+    
+    speech_lower = speech.lower()
+    
+    for phrase in book_phrases:
+        if phrase in speech_lower:
+            return jsonify({'action': 'book_appointment', 'heard': speech})
+    
+    for phrase in change_phrases:
+        if phrase in speech_lower:
+            return jsonify({'action': 'reschedule', 'heard': speech})
+    
+    for phrase in question_phrases:
+        if phrase in speech_lower:
+            return jsonify({'action': 'question', 'heard': speech})
+    
+    return jsonify({'action': 'unknown', 'heard': speech})
 
 @app.route('/twilio-webhook', methods=['POST'])
 def twilio_webhook():
@@ -35,22 +60,50 @@ def twilio_webhook():
             speech_result = speech_result.split('&')[0]
     
     speech_result = speech_result.lower().strip()
+    print(f"DEBUG: Twilio heard: '{speech_result}'")
     
     if not speech_result:
         return jsonify({'action': 'unknown'})
     
-    book_words = ['book', 'bhuka', 'appointment', 'booking', 'ngifuna', 'ngicela']
-    change_words = ['change', 'change appointment', 'move', 'shintsha', 'hlela', 'guqula', 'reschedule']
-    question_words = ['question', 'ask', 'umbuzo', 'buzisa', 'nginombuzo']
+    book_phrases = [
+        'book', 'booking', 'appointment', 'new appointment',
+        'bhuka', 'ukubhuka', 'ngifuna ukubhuka', 'ngicela ukubhuka',
+        'bengisacela ukubhuka', 'bengisacela uku bhuka',
+        'bengisacela uku bhuka i-appointment entsha',
+        'bengisacela ungibhukise', 'awungibhukise',
+        'ngifuna ukubhuka', 'ngicela ukubhuka'
+    ]
     
-    if any(word in speech_result for word in book_words):
-        return jsonify({'action': 'book_appointment'})
-    elif any(word in speech_result for word in change_words):
-        return jsonify({'action': 'reschedule'})
-    elif any(word in speech_result for word in question_words):
-        return jsonify({'action': 'question'})
-    else:
-        return jsonify({'action': 'unknown'})
+    change_phrases = [
+        'change', 'change appointment', 'move', 'reschedule',
+        'shintsha', 'hlela', 'guqula', 'ukushintsha',
+        'ngifuna ukushintsha', 'ngicela ukushintsha'
+    ]
+    
+    question_phrases = [
+        'question', 'ask', 'inquiry', 'help',
+        'umbuzo', 'nginomubuzo', 'ngonombuzo',
+        'bengisacela ukubuza', 'ngifuna ukubuza',
+        'nginombuzo', 'nginendaba', 'ndaba'
+    ]
+    
+    for phrase in book_phrases:
+        if phrase in speech_result:
+            print(f"DEBUG: Matched book phrase: '{phrase}'")
+            return jsonify({'action': 'book_appointment'})
+    
+    for phrase in change_phrases:
+        if phrase in speech_result:
+            print(f"DEBUG: Matched change phrase: '{phrase}'")
+            return jsonify({'action': 'reschedule'})
+    
+    for phrase in question_phrases:
+        if phrase in speech_result:
+            print(f"DEBUG: Matched question phrase: '{phrase}'")
+            return jsonify({'action': 'question'})
+    
+    print("DEBUG: No match found")
+    return jsonify({'action': 'unknown'})
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=False)

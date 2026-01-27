@@ -4,19 +4,24 @@ app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return jsonify({"message": "Assistant understands full Zulu sentences"})
+    return jsonify({"message": "Fixed Zulu booking understanding"})
 
 @app.route('/test-get', methods=['GET'])
 def test_get():
     speech = request.args.get('speech', '').lower().strip()
     
     book_phrases = [
-        'book', 'booking', 'appointment', 'new appointment',
+        'book', 'booking', 'appointment', 'new appointment', 'make appointment',
         'bhuka', 'ukubhuka', 'ngifuna ukubhuka', 'ngicela ukubhuka',
         'bengisacela ukubhuka', 'bengisacela uku bhuka',
         'bengisacela uku bhuka i-appointment entsha',
         'bengisacela ungibhukise', 'awungibhukise',
-        'ngifuna ukubhuka', 'ngicela ukubhuka'
+        'ngifuna ukubhuka', 'ngicela ukubhuka',
+        'being a seller cook book', 'being a seller cook',
+        'engineer cook book', 'engineer cook',
+        'engineer fun cook', 'engineer fun',
+        'cook book', 'cook', 'booker', 'buka', 'booka',
+        'bhuk', 'booki', 'appoint'
     ]
     
     change_phrases = [
@@ -66,12 +71,17 @@ def twilio_webhook():
         return jsonify({'action': 'unknown'})
     
     book_phrases = [
-        'book', 'booking', 'appointment', 'new appointment',
+        'book', 'booking', 'appointment', 'new appointment', 'make appointment',
         'bhuka', 'ukubhuka', 'ngifuna ukubhuka', 'ngicela ukubhuka',
         'bengisacela ukubhuka', 'bengisacela uku bhuka',
         'bengisacela uku bhuka i-appointment entsha',
         'bengisacela ungibhukise', 'awungibhukise',
-        'ngifuna ukubhuka', 'ngicela ukubhuka'
+        'ngifuna ukubhuka', 'ngicela ukubhuka',
+        'being a seller cook book', 'being a seller cook',
+        'engineer cook book', 'engineer cook',
+        'engineer fun cook', 'engineer fun',
+        'cook book', 'cook', 'booker', 'buka', 'booka',
+        'bhuk', 'booki', 'appoint'
     ]
     
     change_phrases = [

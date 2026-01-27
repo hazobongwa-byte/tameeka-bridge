@@ -4,20 +4,20 @@ app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return jsonify({"message": "Assistant understands: book, change appointment, question"})
+    return jsonify({"message": "Fixed assistant: book, change, question"})
 
 @app.route('/test-get', methods=['GET'])
 def test_get():
     speech = request.args.get('speech', '').lower().strip()
     
-    book_words = ['book', 'bhuka', 'appointment']
-    change_words = ['change', 'change appointment', 'move', 'shintsha', 'hlela']
-    question_words = ['question', 'ask', 'umbuzo']
+    book_words = ['book', 'bhuka', 'appointment', 'booking', 'ngifuna', 'ngicela']
+    change_words = ['change', 'change appointment', 'move', 'shintsha', 'hlela', 'guqula', 'reschedule']
+    question_words = ['question', 'ask', 'umbuzo', 'buzisa', 'nginombuzo']
     
     if any(word in speech for word in book_words):
         return jsonify({'action': 'book_appointment', 'heard': speech})
     elif any(word in speech for word in change_words):
-        return jsonify({'action': 'change_appointment', 'heard': speech})
+        return jsonify({'action': 'reschedule', 'heard': speech})
     elif any(word in speech for word in question_words):
         return jsonify({'action': 'question', 'heard': speech})
     else:
@@ -39,14 +39,14 @@ def twilio_webhook():
     if not speech_result:
         return jsonify({'action': 'unknown'})
     
-    book_words = ['book', 'bhuka', 'appointment']
-    change_words = ['change', 'change appointment', 'move', 'shintsha', 'hlela']
-    question_words = ['question', 'ask', 'umbuzo']
+    book_words = ['book', 'bhuka', 'appointment', 'booking', 'ngifuna', 'ngicela']
+    change_words = ['change', 'change appointment', 'move', 'shintsha', 'hlela', 'guqula', 'reschedule']
+    question_words = ['question', 'ask', 'umbuzo', 'buzisa', 'nginombuzo']
     
     if any(word in speech_result for word in book_words):
         return jsonify({'action': 'book_appointment'})
     elif any(word in speech_result for word in change_words):
-        return jsonify({'action': 'change_appointment'})
+        return jsonify({'action': 'reschedule'})
     elif any(word in speech_result for word in question_words):
         return jsonify({'action': 'question'})
     else:

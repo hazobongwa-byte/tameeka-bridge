@@ -56,8 +56,6 @@ def home():
 
 @app.route('/twilio-webhook', methods=['POST'])
 def twilio_webhook():
-    print("DEBUG: Received webhook request")
-    
     speech_result = request.form.get('SpeechResult', '')
     body_data = request.form.get('body', '')
     
@@ -135,6 +133,17 @@ def check_availability():
     time_str = request.form.get('time', '')
     
     print(f"DEBUG: Checking availability for {date_str} at {time_str}")
+    print(f"DEBUG: Full form data: {request.form}")
+    
+    if not date_str or not time_str:
+        print("ERROR: Date or time is empty!")
+        return jsonify({
+            'available': True,
+            'message': 'Please provide date and time',
+            'date': date_str,
+            'time': time_str,
+            'warning': 'Date or time was empty'
+        })
     
     is_available = random.choice([True, True, True, True, True, False])
     

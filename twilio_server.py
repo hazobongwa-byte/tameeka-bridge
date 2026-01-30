@@ -56,66 +56,81 @@ def home():
 
 @app.route('/twilio-webhook', methods=['POST'])
 def twilio_webhook():
-    print("=" * 50)
-    print("DEBUG: Received webhook request")
-    print(f"DEBUG: Full form data: {dict(request.form)}")
-    
     speech_result = request.form.get('SpeechResult', '')
     body_data = request.form.get('body', '')
     
-    print(f"DEBUG: Raw SpeechResult: '{speech_result}'")
-    print(f"DEBUG: Raw body_data: '{body_data}'")
-    
-    if not speech_result and 'SpeechResult=' in body_data:
-        parts = body_data.split('SpeechResult=')
-        if len(parts) > 1:
-            speech_result = parts[1]
-            if '&' in speech_result:
-                speech_result = speech_result.split('&')[0]
+    if not speech_result and body_data:
+        if 'SpeechResult=' in body_data:
+            parts = body_data.split('SpeechResult=')
+            if len(parts) > 1:
+                speech_result = parts[1]
+                if '&' in speech_result:
+                    speech_result = speech_result.split('&')[0]
     
     speech_result = speech_result.lower().strip() if speech_result else ''
-    print(f"DEBUG: Final extracted speech: '{speech_result}'")
     
     if not speech_result:
-        print("DEBUG: Speech is EMPTY")
         return jsonify({'action': 'unknown', 'message': 'Please speak clearly'})
     
-    book_words = ['book', 'new', 'appointment', 'booking', 'make appointment', 'schedule', 'bhuka', 'ukubhuka', 'ngifuna', 'funa', 'ngicela', 'cela', 'ngicela ukubhuka', 'ngifuna ukubhuka', 'bhukha', 'ukubhukha', 'isikhathi', 'bengisacela', 'awungibhukise', 'ungibhukise', 'yenza i-appointment', 'ngifuna isikhathi']
-    reschedule_words = ['reschedule', 'change', 'move', 'postpone', 'cancel', 'cancel appointment', 'hlela', 'shintsha', 'kabusha', 'hlela kabusha', 'hlela futhi', 'guqula', 'shintsha isikhathi', 'shintsha ingqophamlando', 'bhukha kabusha', 'khansela', 'yekisa']
-    question_words = ['question', 'ask', 'inquiry', 'help', 'consult', 'advice', 'umbuzo', 'nginombuzo', 'buzo', 'buzisa', 'buza', 'ndaba', 'nginendaba', 'cebisa', 'eluleka', 'xoxa nodokotela']
+    book_words = [
+        'book', 'new', 'appointment', 'booking', 'make appointment', 'schedule',
+        'bhuka', 'ukubhuka', 'ngifuna', 'funa', 'ngicela', 'cela',
+        'ngicela ukubhuka', 'ngifuna ukubhuka', 'bhukha', 'ukubhukha',
+        'isikhathi', 'bengisacela', 'awungibhukise', 'ungibhukise',
+        'yenza i-appointment', 'ngifuna isikhathi',
+        'google mail', 'gmail', 'google', 'mail', 'google male',
+        'book a point', 'book appoint', 'pointment', 'book a pointment',
+        'puka', 'buka', 'booker', 'bookings', 'booked', 'bok', 
+        'bok appointment', 'bok a pointment', 'i want to book', 
+        'need appointment', 'make booking', 'ngifuna ukwenza', 
+        'ngifuna i-appointment', 'funa i-appointment', 'ngicela isikhathi', 
+        'cela isikhathi', 'book me', 'appointment please', 'want to book',
+        'would like to book', 'need to book', 'looking to book'
+    ]
     
-    matched_book = [word for word in book_words if word in speech_result]
-    matched_reschedule = [word for word in reschedule_words if word in speech_result]
-    matched_question = [word for word in question_words if word in speech_result]
+    reschedule_words = [
+        'reschedule', 'change', 'move', 'postpone', 'cancel', 'cancel appointment',
+        'hlela', 'shintsha', 'kabusha', 'hlela kabusha', 'hlela futhi',
+        'guqula', 'shintsha isikhathi', 'shintsha ingqophamlando',
+        'bhukha kabusha', 'khansela', 'yekisa', 'rice schedule', 
+        're schedule', 're-schedule', 'schedule change', 'change appointment',
+        'move appointment', 'different time', 'different date', 'new time',
+        'new date', 'postpone appointment', 'delay appointment', 'shift appointment',
+        'reschedule my', 'change my', 'move my', 'postpone my', 'cancel my'
+    ]
     
-    print(f"DEBUG: Matched book words: {matched_book}")
-    print(f"DEBUG: Matched reschedule words: {matched_reschedule}")
-    print(f"DEBUG: Matched question words: {matched_question}")
+    question_words = [
+        'question', 'ask', 'inquiry', 'help', 'consult', 'advice',
+        'umbuzo', 'nginombuzo', 'buzo', 'buzisa', 'buza', 'ndaba', 
+        'nginendaba', 'cebisa', 'eluleka', 'xoxa nodokotela', 'kwestion', 
+        'quest', 'query', 'inquiry', 'help me', 'need help', 'have a question',
+        'want to ask', 'need advice', 'need consultation', 'medical question',
+        'ask doctor', 'talk to doctor', 'speak to doctor', 'consult doctor',
+        'doctor advice', 'medical advice', 'health question', 'symptom question'
+    ]
     
-    if matched_book:
-        print("DEBUG: Returning BOOK_APPOINTMENT")
-        return jsonify({'action': 'book_appointment', 'message': 'Booking new appointment'})
-    elif matched_reschedule:
-        print("DEBUG: Returning RESCHEDULE")
-        return jsonify({'action': 'reschedule', 'message': 'Rescheduling appointment'})
-    elif matched_question:
-        print("DEBUG: Returning QUESTION")
-        return jsonify({'action': 'question', 'message': 'Question for doctor'})
-    else:
-        print("DEBUG: No match - returning UNKNOWN")
-        return jsonify({'action': 'unknown', 'message': 'Please say: book appointment, reschedule, or question'})
+    for word in book_words:
+        if word in speech_result:
+            return jsonify({'action': 'book_appointment', 'message': 'Booking new appointment'})
+    
+    for word in reschedule_words:
+        if word in speech_result:
+            return jsonify({'action': 'reschedule', 'message': 'Rescheduling appointment'})
+    
+    for word in question_words:
+        if word in speech_result:
+            return jsonify({'action': 'question', 'message': 'Question for doctor'})
+    
+    return jsonify({'action': 'unknown', 'message': 'Please say: book appointment, reschedule, or question'})
 
 @app.route('/check-availability', methods=['POST'])
 def check_availability():
     date_str = request.form.get('date', '')
     time_str = request.form.get('time', '')
     
-    print(f"DEBUG: Checking availability for {date_str} at {time_str}")
-    
     is_available = random.choice([True, True, True, True, True, False])
     
     if is_available:
-        print(f"DEBUG: Slot is AVAILABLE")
         return jsonify({
             'available': True,
             'message': f'Slot on {date_str} at {time_str} is available',
@@ -133,7 +148,6 @@ def check_availability():
         
         next_day = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
         
-        print(f"DEBUG: Slot NOT available, suggesting alternatives")
         return jsonify({
             'available': False,
             'message': f'Slot on {date_str} at {time_str} is booked',
@@ -151,8 +165,6 @@ def confirm_booking():
     date = request.form.get('date', '')
     time = request.form.get('time', '')
     
-    print(f"DEBUG: Confirming booking for {phone} on {date} at {time}")
-    
     appointment_id = f"APT{random.randint(10000, 99999)}"
     appointment_data = {
         'appointment_id': appointment_id,
@@ -168,7 +180,6 @@ def confirm_booking():
     make_success = False
     if MAKE_CALENDAR_WEBHOOK and MAKE_SHEETS_WEBHOOK:
         make_success = send_to_make_com(appointment_data)
-        print(f"DEBUG: Make.com integration: {'Success' if make_success else 'Failed'}")
     
     response_data = {
         'success': True,
@@ -188,8 +199,6 @@ def handle_question():
     question = request.form.get('question', '')
     phone = request.form.get('phone', '')
     
-    print(f"DEBUG: Question from {phone}: {question}")
-    
     return jsonify({
         'success': True,
         'message': 'Question received. Doctor will call you within 24 hours.',
@@ -203,8 +212,6 @@ def handle_reschedule():
     new_date = request.form.get('new_date', '')
     new_time = request.form.get('new_time', '')
     phone = request.form.get('phone', '')
-    
-    print(f"DEBUG: Rescheduling from {original_date} {original_time} to {new_date} {new_time}")
     
     return jsonify({
         'success': True,

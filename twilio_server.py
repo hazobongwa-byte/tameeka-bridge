@@ -56,30 +56,50 @@ def home():
 
 @app.route('/twilio-webhook', methods=['POST'])
 def twilio_webhook():
-    body_data = request.form.get('body', '')
-    speech_result = request.form.get('SpeechResult', '')
+    print("=" * 50)
+    print("DEBUG: Received webhook request")
+    print(f"DEBUG: Full form data: {dict(request.form)}")
     
-    if not speech_result:
-        if 'SpeechResult=' in body_data:
-            speech_result = body_data.split('SpeechResult=')[1]
+    speech_result = request.form.get('SpeechResult', '')
+    body_data = request.form.get('body', '')
+    
+    print(f"DEBUG: Raw SpeechResult: '{speech_result}'")
+    print(f"DEBUG: Raw body_data: '{body_data}'")
+    
+    if not speech_result and 'SpeechResult=' in body_data:
+        parts = body_data.split('SpeechResult=')
+        if len(parts) > 1:
+            speech_result = parts[1]
             if '&' in speech_result:
                 speech_result = speech_result.split('&')[0]
     
-    speech_result = speech_result.lower().strip()
-    print(f"DEBUG: Speech received: '{speech_result}'")
+    speech_result = speech_result.lower().strip() if speech_result else ''
+    print(f"DEBUG: Final extracted speech: '{speech_result}'")
+    
+    if not speech_result:
+        print("DEBUG: Speech is EMPTY")
+        return jsonify({'action': 'unknown', 'message': 'Please speak clearly'})
     
     book_words = ['book', 'new', 'appointment', 'booking', 'make appointment', 'schedule', 'bhuka', 'ukubhuka', 'ngifuna', 'funa', 'ngicela', 'cela', 'ngicela ukubhuka', 'ngifuna ukubhuka', 'bhukha', 'ukubhukha', 'isikhathi', 'bengisacela', 'awungibhukise', 'ungibhukise', 'yenza i-appointment', 'ngifuna isikhathi']
     reschedule_words = ['reschedule', 'change', 'move', 'postpone', 'cancel', 'cancel appointment', 'hlela', 'shintsha', 'kabusha', 'hlela kabusha', 'hlela futhi', 'guqula', 'shintsha isikhathi', 'shintsha ingqophamlando', 'bhukha kabusha', 'khansela', 'yekisa']
     question_words = ['question', 'ask', 'inquiry', 'help', 'consult', 'advice', 'umbuzo', 'nginombuzo', 'buzo', 'buzisa', 'buza', 'ndaba', 'nginendaba', 'cebisa', 'eluleka', 'xoxa nodokotela']
     
-    if any(word in speech_result for word in book_words):
-        print("DEBUG: Matched BOOK_APPOINTMENT")
+    matched_book = [word for word in book_words if word in speech_result]
+    matched_reschedule = [word for word in reschedule_words if word in speech_result]
+    matched_question = [word for word in question_words if word in speech_result]
+    
+    print(f"DEBUG: Matched book words: {matched_book}")
+    print(f"DEBUG: Matched reschedule words: {matched_reschedule}")
+    print(f"DEBUG: Matched question words: {matched_question}")
+    
+    if matched_book:
+        print("DEBUG: Returning BOOK_APPOINTMENT")
         return jsonify({'action': 'book_appointment', 'message': 'Booking new appointment'})
-    elif any(word in speech_result for word in reschedule_words):
-        print("DEBUG: Matched RESCHEDULE")
+    elif matched_reschedule:
+        print("DEBUG: Returning RESCHEDULE")
         return jsonify({'action': 'reschedule', 'message': 'Rescheduling appointment'})
-    elif any(word in speech_result for word in question_words):
-        print("DEBUG: Matched QUESTION")
+    elif matched_question:
+        print("DEBUG: Returning QUESTION")
         return jsonify({'action': 'question', 'message': 'Question for doctor'})
     else:
         print("DEBUG: No match - returning UNKNOWN")

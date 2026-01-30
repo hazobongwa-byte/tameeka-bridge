@@ -56,6 +56,8 @@ def home():
 
 @app.route('/twilio-webhook', methods=['POST'])
 def twilio_webhook():
+    print("DEBUG: Received webhook request")
+    
     speech_result = request.form.get('SpeechResult', '')
     body_data = request.form.get('body', '')
     
@@ -68,8 +70,10 @@ def twilio_webhook():
                     speech_result = speech_result.split('&')[0]
     
     speech_result = speech_result.lower().strip() if speech_result else ''
+    print(f"DEBUG: Speech received: '{speech_result}'")
     
     if not speech_result:
+        print("DEBUG: Speech is EMPTY")
         return jsonify({'action': 'unknown', 'message': 'Please speak clearly'})
     
     book_words = [
@@ -85,7 +89,8 @@ def twilio_webhook():
         'need appointment', 'make booking', 'ngifuna ukwenza', 
         'ngifuna i-appointment', 'funa i-appointment', 'ngicela isikhathi', 
         'cela isikhathi', 'book me', 'appointment please', 'want to book',
-        'would like to book', 'need to book', 'looking to book'
+        'would like to book', 'need to book', 'looking to book',
+        'make a booking', 'set up appointment', 'schedule appointment'
     ]
     
     reschedule_words = [
@@ -96,7 +101,8 @@ def twilio_webhook():
         're schedule', 're-schedule', 'schedule change', 'change appointment',
         'move appointment', 'different time', 'different date', 'new time',
         'new date', 'postpone appointment', 'delay appointment', 'shift appointment',
-        'reschedule my', 'change my', 'move my', 'postpone my', 'cancel my'
+        'reschedule my', 'change my', 'move my', 'postpone my', 'cancel my',
+        'adjust appointment', 'modify appointment', 'alter appointment'
     ]
     
     question_words = [
@@ -106,31 +112,34 @@ def twilio_webhook():
         'quest', 'query', 'inquiry', 'help me', 'need help', 'have a question',
         'want to ask', 'need advice', 'need consultation', 'medical question',
         'ask doctor', 'talk to doctor', 'speak to doctor', 'consult doctor',
-        'doctor advice', 'medical advice', 'health question', 'symptom question'
+        'doctor advice', 'medical advice', 'health question', 'symptom question',
+        'inquire', 'enquire', 'seek advice', 'get advice', 'clinical question'
     ]
     
-    for word in book_words:
-        if word in speech_result:
-            return jsonify({'action': 'book_appointment', 'message': 'Booking new appointment'})
-    
-    for word in reschedule_words:
-        if word in speech_result:
-            return jsonify({'action': 'reschedule', 'message': 'Rescheduling appointment'})
-    
-    for word in question_words:
-        if word in speech_result:
-            return jsonify({'action': 'question', 'message': 'Question for doctor'})
-    
-    return jsonify({'action': 'unknown', 'message': 'Please say: book appointment, reschedule, or question'})
+    if any(word in speech_result for word in book_words):
+        print("DEBUG: Matched BOOK_APPOINTMENT")
+        return jsonify({'action': 'book_appointment', 'message': 'Booking new appointment'})
+    elif any(word in speech_result for word in reschedule_words):
+        print("DEBUG: Matched RESCHEDULE")
+        return jsonify({'action': 'reschedule', 'message': 'Rescheduling appointment'})
+    elif any(word in speech_result for word in question_words):
+        print("DEBUG: Matched QUESTION")
+        return jsonify({'action': 'question', 'message': 'Question for doctor'})
+    else:
+        print("DEBUG: No match - returning UNKNOWN")
+        return jsonify({'action': 'unknown', 'message': 'Please say: book appointment, reschedule, or question'})
 
 @app.route('/check-availability', methods=['POST'])
 def check_availability():
     date_str = request.form.get('date', '')
     time_str = request.form.get('time', '')
     
+    print(f"DEBUG: Checking availability for {date_str} at {time_str}")
+    
     is_available = random.choice([True, True, True, True, True, False])
     
     if is_available:
+        print(f"DEBUG: Slot is AVAILABLE")
         return jsonify({
             'available': True,
             'message': f'Slot on {date_str} at {time_str} is available',
@@ -148,6 +157,7 @@ def check_availability():
         
         next_day = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
         
+        print(f"DEBUG: Slot NOT available, suggesting alternatives")
         return jsonify({
             'available': False,
             'message': f'Slot on {date_str} at {time_str} is booked',
@@ -165,6 +175,8 @@ def confirm_booking():
     date = request.form.get('date', '')
     time = request.form.get('time', '')
     
+    print(f"DEBUG: Confirming booking for {phone} on {date} at {time}")
+    
     appointment_id = f"APT{random.randint(10000, 99999)}"
     appointment_data = {
         'appointment_id': appointment_id,
@@ -180,6 +192,7 @@ def confirm_booking():
     make_success = False
     if MAKE_CALENDAR_WEBHOOK and MAKE_SHEETS_WEBHOOK:
         make_success = send_to_make_com(appointment_data)
+        print(f"DEBUG: Make.com integration: {'Success' if make_success else 'Failed'}")
     
     response_data = {
         'success': True,
@@ -199,6 +212,8 @@ def handle_question():
     question = request.form.get('question', '')
     phone = request.form.get('phone', '')
     
+    print(f"DEBUG: Question from {phone}: {question}")
+    
     return jsonify({
         'success': True,
         'message': 'Question received. Doctor will call you within 24 hours.',
@@ -212,6 +227,8 @@ def handle_reschedule():
     new_date = request.form.get('new_date', '')
     new_time = request.form.get('new_time', '')
     phone = request.form.get('phone', '')
+    
+    print(f"DEBUG: Rescheduling from {original_date} {original_time} to {new_date} {new_time}")
     
     return jsonify({
         'success': True,

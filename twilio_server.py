@@ -10,21 +10,19 @@ load_dotenv()
 app = Flask(__name__)
 
 BOOK_KEYWORDS = {
-    'english': ['book', 'new', 'appointment', 'booking', 'make appointment', 'schedule', 'make booking', 'i want to book', 'i need appointment', 'doctor appointment'],
-    'isizulu': ['bhuka', 'ukubhuka', 'ngifuna', 'funa', 'ngicela', 'cela', 'ngicela ukubhuka', 'ngidinga', 'ngifuna ukubhuka', 'ngidinga ukubhuka', 'ukwenza isikhathi'],
-    'misheard': ['google mail', 'gmail', 'google', 'mail', 'book a point', 'book appoint', 'book up point', 'book a', 'pointment', 'booking a point', 'google book']
+    'english': ['book', 'new', 'appointment', 'booking', 'make appointment', 'schedule', 'make booking'],
+    'isizulu': ['bhuka', 'ukubhuka', 'ngifuna', 'funa', 'ngicela', 'cela', 'ngicela ukubhuka', 'ngidinga'],
+    'misheard': ['google mail', 'gmail', 'google', 'mail', 'book a point', 'book appoint', 'book up point']
 }
 
 RESCHEDULE_KEYWORDS = {
     'english': ['reschedule', 'change', 'move', 'postpone', 'cancel', 'shift'],
-    'isizulu': ['hlela', 'shintsha', 'kabusha', 'hlela kabusha', 'shintsha isikhathi', 'guqula', 'uguqulo', 'shintsha umhla'],
-    'misheard': ['schedule', 'reshuffle', 'reshake', 'reshake you']
+    'isizulu': ['hlela', 'shintsha', 'kabusha', 'hlela kabusha', 'shintsha isikhathi']
 }
 
 QUESTION_KEYWORDS = {
     'english': ['question', 'ask', 'inquiry', 'help', 'consult', 'information'],
-    'isizulu': ['umbuzo', 'nginombuzo', 'buzo', 'buzisa', 'buza', 'imibuzo', 'idinga usizo', 'usizo', 'ngidinga usizo'],
-    'misheard': ['question a', 'questions', 'westin', 'western']
+    'isizulu': ['umbuzo', 'nginombuzo', 'buzo', 'buzisa', 'buza', 'imibuzo', 'idinga usizo']
 }
 
 def classify_intent(speech_text):
@@ -32,27 +30,22 @@ def classify_intent(speech_text):
         return "unknown"
     
     text_lower = speech_text.lower()
-    print(f"DEBUG: Checking speech: {speech_text}")
     
     all_book_keywords = BOOK_KEYWORDS['english'] + BOOK_KEYWORDS['isizulu'] + BOOK_KEYWORDS['misheard']
     for keyword in all_book_keywords:
         if keyword in text_lower:
-            print(f"DEBUG: Matched book keyword: {keyword}")
             return "book_appointment"
     
-    all_reschedule_keywords = RESCHEDULE_KEYWORDS['english'] + RESCHEDULE_KEYWORDS['isizulu'] + RESCHEDULE_KEYWORDS['misheard']
+    all_reschedule_keywords = RESCHEDULE_KEYWORDS['english'] + RESCHEDULE_KEYWORDS['isizulu']
     for keyword in all_reschedule_keywords:
         if keyword in text_lower:
-            print(f"DEBUG: Matched reschedule keyword: {keyword}")
             return "reschedule"
     
-    all_question_keywords = QUESTION_KEYWORDS['english'] + QUESTION_KEYWORDS['isizulu'] + QUESTION_KEYWORDS['misheard']
+    all_question_keywords = QUESTION_KEYWORDS['english'] + QUESTION_KEYWORDS['isizulu']
     for keyword in all_question_keywords:
         if keyword in text_lower:
-            print(f"DEBUG: Matched question keyword: {keyword}")
             return "question"
     
-    print(f"DEBUG: No keyword matched")
     return "unknown"
 
 def parse_speech_date(date_speech):
@@ -76,10 +69,6 @@ def parse_speech_date(date_speech):
         if 'tomorrow' in date_speech:
             tomorrow = today + timedelta(days=1)
             return tomorrow.strftime("%m%d%Y")
-        
-        if 'next week' in date_speech:
-            next_week = today + timedelta(days=7)
-            return next_week.strftime("%m%d%Y")
         
         days_map = {
             'monday': 0, 'tuesday': 1, 'wednesday': 2, 'thursday': 3,
@@ -179,10 +168,8 @@ def home():
 @app.route('/twilio-webhook', methods=['POST'])
 def twilio_webhook():
     speech_result = request.form.get('SpeechResult', '')
-    print(f"Twillio Webhook received: {speech_result}")
     
     intent = classify_intent(speech_result)
-    print(f"Intent classified as: {intent}")
     
     if intent == "book_appointment":
         return jsonify({
@@ -241,7 +228,7 @@ def check_availability():
         if not formatted_date:
             return jsonify({
                 "available": False,
-                "message": f"Sorry, I didn't understand the date '{date_speech}'. Please say something like 'January 30th' or 'next Tuesday'."
+                "message": f"Sorry, I didn't understand the date '{date_speech}'. Please say something like 'tomorrow' or 'next Tuesday'."
             })
         
         if not formatted_time:

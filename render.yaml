@@ -4,4 +4,4 @@ services:
     env: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: python twilio_server.py
+    startCommand: gunicorn twilio_server:app

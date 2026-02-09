@@ -266,10 +266,9 @@ def check_availability():
             
             alt1_hour = hour + 2
             if alt1_hour >= 17:
-                alt1_hour = 9
-                alt1_datetime = requested_datetime + timedelta(days=1)
+                alt1_datetime = (requested_datetime + timedelta(days=1)).replace(hour=9, minute=0)
             else:
-                alt1_datetime = requested_datetime.replace(hour=alt1_hour)
+                alt1_datetime = requested_datetime.replace(hour=alt1_hour, minute=0)
             
             suggestion1 = {
                 "day_name": alt1_datetime.strftime("%B %d, %Y"),
@@ -301,7 +300,7 @@ def check_availability():
             else:
                 return jsonify({
                     "available": False,
-                    "message": f"Sorry, {requested_datetime.strftime('%I:%M %p')} is not available. Would you like to try {suggestion1['time']} or {suggestion2['time']} instead?",
+                    "message": f"Sorry, {requested_datetime.strftime('%I:%M %p')} is not available. We have alternative slots at {suggestion1['time']} on {suggestion1['day_name']} and {suggestion2['time']} on {suggestion2['day_name']}.",
                     "suggestions": suggestions
                 })
                 

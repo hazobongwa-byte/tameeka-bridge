@@ -221,6 +221,7 @@ def check_availability():
     try:
         date_speech = request.form.get('date', '')
         time_speech = request.form.get('time', '')
+        attempt = int(request.form.get('attempt', '0'))
         
         formatted_date = parse_speech_date(date_speech)
         formatted_time = parse_speech_time(time_speech)
@@ -260,15 +261,12 @@ def check_availability():
                 })
             
             import random
-            is_available = random.random() > 0.2
+            is_available = random.random() < 0.8
             
             suggestions = []
             
-            alt1_hour = hour + 2
-            if alt1_hour >= 17:
-                alt1_datetime = (requested_datetime + timedelta(days=1)).replace(hour=9, minute=0)
-            else:
-                alt1_datetime = requested_datetime.replace(hour=alt1_hour, minute=0)
+            alt1_datetime = requested_datetime + timedelta(days=1)
+            alt1_datetime = alt1_datetime.replace(hour=10, minute=0)
             
             suggestion1 = {
                 "day_name": alt1_datetime.strftime("%B %d, %Y"),
@@ -278,7 +276,9 @@ def check_availability():
             }
             suggestions.append(suggestion1)
             
-            alt2_datetime = requested_datetime + timedelta(days=1)
+            alt2_datetime = requested_datetime + timedelta(days=2)
+            alt2_datetime = alt2_datetime.replace(hour=14, minute=30)
+            
             suggestion2 = {
                 "day_name": alt2_datetime.strftime("%B %d, %Y"),
                 "time": alt2_datetime.strftime("%I:%M %p"),
@@ -287,22 +287,91 @@ def check_availability():
             }
             suggestions.append(suggestion2)
             
+            alt3_datetime = requested_datetime + timedelta(days=3)
+            alt3_datetime = alt3_datetime.replace(hour=11, minute=0)
+            
+            suggestion3 = {
+                "day_name": alt3_datetime.strftime("%B %d, %Y"),
+                "time": alt3_datetime.strftime("%I:%M %p"),
+                "raw_date": alt3_datetime.strftime("%m%d%Y"),
+                "raw_time": alt3_datetime.strftime("%H%M")
+            }
+            suggestions.append(suggestion3)
+            
             if is_available:
-                return jsonify({
-                    "available": True,
-                    "message": f"The selected time on {requested_datetime.strftime('%B %d')} at {requested_datetime.strftime('%I:%M %p')} is available. Please confirm your booking.",
-                    "formatted_date": requested_datetime.strftime("%B %d, %Y"),
-                    "formatted_time": requested_datetime.strftime("%I:%M %p"),
-                    "raw_date": formatted_date,
-                    "raw_time": formatted_time,
-                    "suggestions": suggestions
-                })
+                if attempt == 0:
+                    return jsonify({
+                        "available": True,
+                        "message": f"The selected time on {requested_datetime.strftime('%B %d')} at {requested_datetime.strftime('%I:%M %p')} is available. Say yes to confirm this slot or next to hear another option.",
+                        "formatted_date": requested_datetime.strftime("%B %d, %Y"),
+                        "formatted_time": requested_datetime.strftime("%I:%M %p"),
+                        "raw_date": formatted_date,
+                        "raw_time": formatted_time,
+                        "suggestions": suggestions,
+                        "attempt": attempt
+                    })
+                elif attempt == 1:
+                    return jsonify({
+                        "available": True,
+                        "message": f"Another option is at {suggestion1['time']} on {suggestion1['day_name']}. Say yes to book this slot or next to hear another option.",
+                        "formatted_date": requested_datetime.strftime("%B %d, %Y"),
+                        "formatted_time": requested_datetime.strftime("%I:%M %p"),
+                        "raw_date": formatted_date,
+                        "raw_time": formatted_time,
+                        "suggestions": suggestions,
+                        "attempt": attempt
+                    })
+                elif attempt == 2:
+                    return jsonify({
+                        "available": True,
+                        "message": f"We also have a slot at {suggestion2['time']} on {suggestion2['day_name']}. Say yes to book this slot or next to hear one more option.",
+                        "formatted_date": requested_datetime.strftime("%B %d, %Y"),
+                        "formatted_time": requested_datetime.strftime("%I:%M %p"),
+                        "raw_date": formatted_date,
+                        "raw_time": formatted_time,
+                        "suggestions": suggestions,
+                        "attempt": attempt
+                    })
+                else:
+                    return jsonify({
+                        "available": True,
+                        "message": f"One more option at {suggestion3['time']} on {suggestion3['day_name']}. Say yes to book this slot or we'll end the call.",
+                        "formatted_date": requested_datetime.strftime("%B %d, %Y"),
+                        "formatted_time": requested_datetime.strftime("%I:%M %p"),
+                        "raw_date": formatted_date,
+                        "raw_time": formatted_time,
+                        "suggestions": suggestions,
+                        "attempt": attempt
+                    })
             else:
-                return jsonify({
-                    "available": False,
-                    "message": f"Sorry, {requested_datetime.strftime('%I:%M %p')} is not available. We have alternative slots at {suggestion1['time']} on {suggestion1['day_name']} and {suggestion2['time']} on {suggestion2['day_name']}.",
-                    "suggestions": suggestions
-                })
+                if attempt == 0:
+                    return jsonify({
+                        "available": False,
+                        "message": f"Sorry, {requested_datetime.strftime('%I:%M %p')} is not available. We have an alternative at {suggestion1['time']} on {suggestion1['day_name']}. Say yes to book this slot or next to hear another option.",
+                        "suggestions": suggestions,
+                        "attempt": attempt
+                    })
+                elif attempt == 1:
+                    return jsonify({
+                        "available": False,
+                        "message": f"Another option is at {suggestion2['time']} on {suggestion2['day_name']}. Say yes to book this slot or next to hear another option.",
+                        "suggestions": suggestions,
+                        "attempt": attempt
+                    })
+                elif attempt == 2:
+                    return jsonify({
+                        "available": False,
+                        "message": f"We also have a slot at {suggestion3['time']} on {suggestion3['day_name']}. Say yes to book this slot or next to try another day.",
+                        "suggestions": suggestions,
+                        "attempt": attempt
+                    })
+                else:
+                    return jsonify({
+                        "available": False,
+                        "message": "We don't have more available slots at the moment. Please call again another day. Goodbye.",
+                        "suggestions": suggestions,
+                        "attempt": attempt
+                    })
                 
         except ValueError as e:
             print(f"Error parsing formatted date/time: {e}")
@@ -318,28 +387,13 @@ def check_availability():
             "message": "Technical error checking availability. Please try again or call the clinic directly."
         })
 
-@app.route('/debug-parse', methods=['POST'])
-def debug_parse():
-    date_speech = request.form.get('date', '')
-    time_speech = request.form.get('time', '')
-    
-    formatted_date = parse_speech_date(date_speech)
-    formatted_time = parse_speech_time(time_speech)
-    
-    return jsonify({
-        "input_date": date_speech,
-        "input_time": time_speech,
-        "parsed_date": formatted_date,
-        "parsed_time": formatted_time,
-        "success": formatted_date is not None and formatted_time is not None
-    })
-
 @app.route('/confirm-booking', methods=['POST'])
 def confirm_booking():
     try:
         date_str = request.form.get('date', '')
         time_str = request.form.get('time', '')
         phone = request.form.get('phone', '')
+        name = request.form.get('name', '')
         
         if len(date_str) != 8:
             date_str = parse_speech_date(date_str) or date_str
@@ -362,6 +416,7 @@ def confirm_booking():
         make_sheets_webhook = os.getenv('MAKE_SHEETS_WEBHOOK')
         
         booking_data = {
+            "patient_name": name,
             "patient_phone": phone,
             "appointment_time": formatted_datetime,
             "status": "confirmed",

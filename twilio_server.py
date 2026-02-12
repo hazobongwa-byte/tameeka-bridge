@@ -82,9 +82,16 @@ def parse_speech_time(time_speech):
         time_speech = time_speech.strip().lower()
         time_speech = time_speech.replace('at', '').replace('around', '').replace('about', '').strip()
         time_speech = time_speech.replace('_', ' ')
-        parsed = dateparser.parse(time_speech)
-        if parsed:
-            return parsed.strftime("%H%M")
+        
+        period = None
+        if re.search(r'p[.\s_]*m', time_speech):
+            period = 'pm'
+        elif re.search(r'a[.\s_]*m', time_speech):
+            period = 'am'
+        
+        time_speech = re.sub(r'p[.\s_]*m', 'pm', time_speech)
+        time_speech = re.sub(r'a[.\s_]*m', 'am', time_speech)
+        
         word_to_num = {
             'one': '1', 'two': '2', 'three': '3', 'four': '4', 'five': '5',
             'six': '6', 'seven': '7', 'eight': '8', 'nine': '9', 'ten': '10',
@@ -93,16 +100,13 @@ def parse_speech_time(time_speech):
             'nineteen': '19', 'twenty': '20', 'thirty': '30', 'forty': '40',
             'fifty': '50'
         }
-        time_speech = re.sub(r'p[.\s_]*m', 'pm', time_speech)
-        time_speech = re.sub(r'a[.\s_]*m', 'am', time_speech)
+        
         words = time_speech.split()
         hour_str = None
         minute_str = '00'
-        period = None
+        
         for word in words:
-            if word in ['am', 'pm']:
-                period = word
-            elif word in word_to_num:
+            if word in word_to_num:
                 if hour_str is None:
                     hour_str = word_to_num[word]
                 else:
@@ -112,19 +116,26 @@ def parse_speech_time(time_speech):
                     hour_str = word
                 else:
                     minute_str = word
+        
         if hour_str:
             hour = int(hour_str)
-            minute = int(minute_str) if minute_str else 0
+            minute = int(minute_str)
             if period == 'pm' and hour < 12:
                 hour += 12
             elif period == 'am' and hour == 12:
                 hour = 0
             return f"{hour:02d}{minute:02d}"
+        
         match = re.search(r'(\d{1,2})[:.](\d{2})', time_speech)
         if match:
             hour = int(match.group(1))
             minute = int(match.group(2))
+            if period == 'pm' and hour < 12:
+                hour += 12
+            elif period == 'am' and hour == 12:
+                hour = 0
             return f"{hour:02d}{minute:02d}"
+        
         match = re.search(r'(\d{1,2})\s*(am|pm)', time_speech)
         if match:
             hour = int(match.group(1))
@@ -134,12 +145,18 @@ def parse_speech_time(time_speech):
             elif period == 'am' and hour == 12:
                 hour = 0
             return f"{hour:02d}00"
+        
         if 'morning' in time_speech:
             return "0900"
         elif 'afternoon' in time_speech:
             return "1400"
         elif 'evening' in time_speech:
             return "1700"
+        
+        parsed = dateparser.parse(time_speech)
+        if parsed:
+            return parsed.strftime("%H%M")
+        
         return None
     except Exception as e:
         print(f"Error parsing time speech: {e}")
@@ -215,42 +232,52 @@ def check_availability():
         date_speech = request.form.get('date', '')
         time_speech = request.form.get('time', '')
         attempt = int(request.form.get('attempt', '0'))
+        
         formatted_date = parse_speech_date(date_speech)
         formatted_time = parse_speech_time(time_speech)
+        
         if not formatted_date:
             return jsonify({
                 "available": False,
                 "message": f"Sorry, I didn't understand the date '{date_speech}'. Please say something like 'tomorrow' or 'next Tuesday'.",
                 "attempt": attempt
             })
+        
         if not formatted_time:
             return jsonify({
                 "available": False,
                 "message": f"Sorry, I didn't understand the time '{time_speech}'. Please say something like '2:30 PM' or 'fourteen thirty'.",
                 "attempt": attempt
             })
+        
         try:
             month = int(formatted_date[0:2])
             day = int(formatted_date[2:4])
             year = int(formatted_date[4:8])
             hour = int(formatted_time[0:2])
             minute = int(formatted_time[2:4])
+            
             requested_datetime = datetime(year, month, day, hour, minute)
+            
             if requested_datetime < datetime.now():
                 return jsonify({
                     "available": False,
                     "message": "Appointment time must be in the future. Please choose a later date and time.",
                     "attempt": attempt
                 })
+            
             if hour < 9 or hour >= 17:
                 return jsonify({
                     "available": False,
                     "message": "Clinic hours are 9 AM to 5 PM. Please choose a time within these hours.",
                     "attempt": attempt
                 })
+            
             import random
             is_available = random.random() < 0.8
+            
             suggestions = []
+            
             alt1_datetime = requested_datetime + timedelta(days=1)
             alt1_datetime = alt1_datetime.replace(hour=10, minute=0)
             suggestions.append({
@@ -259,6 +286,7 @@ def check_availability():
                 "raw_date": alt1_datetime.strftime("%m%d%Y"),
                 "raw_time": alt1_datetime.strftime("%H%M")
             })
+            
             alt2_datetime = requested_datetime + timedelta(days=2)
             alt2_datetime = alt2_datetime.replace(hour=14, minute=30)
             suggestions.append({
@@ -267,6 +295,7 @@ def check_availability():
                 "raw_date": alt2_datetime.strftime("%m%d%Y"),
                 "raw_time": alt2_datetime.strftime("%H%M")
             })
+            
             alt3_datetime = requested_datetime + timedelta(days=3)
             alt3_datetime = alt3_datetime.replace(hour=11, minute=0)
             suggestions.append({
@@ -275,6 +304,7 @@ def check_availability():
                 "raw_date": alt3_datetime.strftime("%m%d%Y"),
                 "raw_time": alt3_datetime.strftime("%H%M")
             })
+            
             if is_available:
                 if attempt == 0:
                     message = f"The selected time on {requested_datetime.strftime('%B %d')} at {requested_datetime.strftime('%I:%M %p')} is available. Say yes to confirm this slot or next to hear another option."
@@ -357,6 +387,7 @@ def check_availability():
                         "suggestions": suggestions,
                         "attempt": attempt
                     })
+                
         except ValueError as e:
             print(f"Error parsing formatted date/time: {e}")
             return jsonify({
@@ -364,6 +395,7 @@ def check_availability():
                 "message": "Invalid date or time. Please try again with a different time.",
                 "attempt": attempt
             })
+            
     except Exception as e:
         print(f"Error in check_availability: {e}")
         return jsonify({
@@ -393,10 +425,12 @@ def confirm_booking():
         time_str = request.form.get('time', '')
         phone = request.form.get('phone', '')
         name = request.form.get('name', '')
+        
         if len(date_str) != 8:
             date_str = parse_speech_date(date_str) or date_str
         if len(time_str) != 4:
             time_str = parse_speech_time(time_str) or time_str
+        
         if len(date_str) == 8 and len(time_str) == 4:
             month = int(date_str[0:2])
             day = int(date_str[2:4])
@@ -407,8 +441,10 @@ def confirm_booking():
             formatted_datetime = appointment_datetime.strftime("%Y-%m-%d %H:%M")
         else:
             formatted_datetime = f"{date_str} at {time_str}"
+        
         make_calendar_webhook = os.getenv('MAKE_CALENDAR_WEBHOOK')
         make_sheets_webhook = os.getenv('MAKE_SHEETS_WEBHOOK')
+        
         booking_data = {
             "patient_name": name,
             "patient_phone": phone,
@@ -417,21 +453,25 @@ def confirm_booking():
             "source": "Tameeka Voice Assistant",
             "timestamp": datetime.now().isoformat()
         }
+        
         if make_calendar_webhook:
             try:
                 requests.post(make_calendar_webhook, json=booking_data, timeout=5)
             except Exception:
                 pass
+        
         if make_sheets_webhook:
             try:
                 requests.post(make_sheets_webhook, json=booking_data, timeout=5)
             except Exception:
                 pass
+        
         return jsonify({
             "success": True,
             "message": "Booking confirmed successfully! A confirmation will be sent to your phone.",
             "confirmation_number": f"TAM-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
         })
+        
     except Exception as e:
         print(f"Error in confirm_booking: {e}")
         return jsonify({
@@ -442,14 +482,17 @@ def confirm_booking():
 @app.route('/handle-question', methods=['POST'])
 def handle_question():
     question = request.form.get('question', '')
+    
     faq_responses = {
         'hours': "Our clinic hours are Monday to Friday, 9 AM to 5 PM.",
         'location': "We are located at 123 Medical Street, Durban.",
         'contact': "You can call us at 031-123-4567 during business hours.",
         'emergency': "For emergencies, please go to the nearest hospital emergency room."
     }
+    
     question_lower = question.lower()
     response = "Thank you for your question. A staff member will call you back shortly with more information."
+    
     if 'hour' in question_lower or 'open' in question_lower or 'close' in question_lower:
         response = faq_responses['hours']
     elif 'location' in question_lower or 'address' in question_lower or 'where' in question_lower:
@@ -458,6 +501,7 @@ def handle_question():
         response = faq_responses['contact']
     elif 'emergency' in question_lower or 'urgent' in question_lower:
         response = faq_responses['emergency']
+    
     return jsonify({
         "response": response,
         "action": "say_response"

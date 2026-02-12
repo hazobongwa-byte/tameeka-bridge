@@ -28,30 +28,24 @@ QUESTION_KEYWORDS = {
 def classify_intent(speech_text):
     if not speech_text:
         return "unknown"
-    
     text_lower = speech_text.lower()
-    
     all_book_keywords = BOOK_KEYWORDS['english'] + BOOK_KEYWORDS['isizulu'] + BOOK_KEYWORDS['misheard']
     for keyword in all_book_keywords:
         if keyword in text_lower:
             return "book_appointment"
-    
     all_reschedule_keywords = RESCHEDULE_KEYWORDS['english'] + RESCHEDULE_KEYWORDS['isizulu']
     for keyword in all_reschedule_keywords:
         if keyword in text_lower:
             return "reschedule"
-    
     all_question_keywords = QUESTION_KEYWORDS['english'] + QUESTION_KEYWORDS['isizulu']
     for keyword in all_question_keywords:
         if keyword in text_lower:
             return "question"
-    
     return "unknown"
 
 def parse_speech_date(date_speech):
     try:
         date_speech = date_speech.strip().lower()
-        
         parsed_date = dateparser.parse(
             date_speech,
             settings={
@@ -60,21 +54,16 @@ def parse_speech_date(date_speech):
                 'TIMEZONE': 'Africa/Johannesburg'
             }
         )
-        
         if parsed_date:
             return parsed_date.strftime("%m%d%Y")
-        
         today = datetime.now()
-        
         if 'tomorrow' in date_speech:
             tomorrow = today + timedelta(days=1)
             return tomorrow.strftime("%m%d%Y")
-        
         days_map = {
             'monday': 0, 'tuesday': 1, 'wednesday': 2, 'thursday': 3,
             'friday': 4, 'saturday': 5, 'sunday': 6
         }
-        
         for day_name, day_num in days_map.items():
             if day_name in date_speech:
                 current_day = today.weekday()
@@ -83,9 +72,7 @@ def parse_speech_date(date_speech):
                     days_ahead += 7
                 target_date = today + timedelta(days=days_ahead)
                 return target_date.strftime("%m%d%Y")
-        
         return None
-        
     except Exception as e:
         print(f"Error parsing date speech: {e}")
         return None
@@ -93,49 +80,68 @@ def parse_speech_date(date_speech):
 def parse_speech_time(time_speech):
     try:
         time_speech = time_speech.strip().lower()
-        
         time_speech = time_speech.replace('at', '').replace('around', '').replace('about', '').strip()
         
-        parsed_time = dateparser.parse(time_speech)
-        if parsed_time:
-            return parsed_time.strftime("%H%M")
+        parsed = dateparser.parse(time_speech)
+        if parsed:
+            return parsed.strftime("%H%M")
         
-        patterns = [
-            (r'(\d{1,2})[:.]?(\d{2})?\s*(am|pm)', 1),
-            (r'(\d{1,2})\s*(am|pm)', 2),
-            (r'(\d{1,2})[:.]?(\d{2})', 3),
-        ]
+        word_to_num = {
+            'one': '1', 'two': '2', 'three': '3', 'four': '4', 'five': '5',
+            'six': '6', 'seven': '7', 'eight': '8', 'nine': '9', 'ten': '10',
+            'eleven': '11', 'twelve': '12', 'thirteen': '13', 'fourteen': '14',
+            'fifteen': '15', 'sixteen': '16', 'seventeen': '17', 'eighteen': '18',
+            'nineteen': '19', 'twenty': '20', 'thirty': '30', 'forty': '40',
+            'fifty': '50'
+        }
         
-        for pattern, pattern_type in patterns:
-            match = re.search(pattern, time_speech)
-            if match:
-                if pattern_type == 1:
-                    hour = int(match.group(1))
-                    minute = int(match.group(2) or 0)
-                    period = match.group(3).lower()
-                    
-                    if period == 'pm' and hour < 12:
-                        hour += 12
-                    elif period == 'am' and hour == 12:
-                        hour = 0
-                        
-                    return f"{hour:02d}{minute:02d}"
-                
-                elif pattern_type == 2:
-                    hour = int(match.group(1))
-                    period = match.group(2).lower()
-                    
-                    if period == 'pm' and hour < 12:
-                        hour += 12
-                    elif period == 'am' and hour == 12:
-                        hour = 0
-                        
-                    return f"{hour:02d}00"
-                
-                elif pattern_type == 3:
-                    hour = int(match.group(1))
-                    minute = int(match.group(2) or 0)
-                    return f"{hour:02d}{minute:02d}"
+        words = time_speech.split()
+        hour_str = None
+        minute_str = '00'
+        period = None
+        
+        for word in words:
+            if word in ['am', 'a.m.', 'a.m', 'am.']:
+                period = 'am'
+            elif word in ['pm', 'p.m.', 'p.m', 'pm.']:
+                period = 'pm'
+            elif word in word_to_num:
+                if hour_str is None:
+                    hour_str = word_to_num[word]
+                else:
+                    minute_str = word_to_num[word]
+            elif word.isdigit():
+                if hour_str is None:
+                    hour_str = word
+                else:
+                    minute_str = word
+        
+        if hour_str:
+            hour = int(hour_str)
+            minute = int(minute_str) if minute_str else 0
+            if period == 'pm' and hour < 12:
+                hour += 12
+            elif period == 'am' and hour == 12:
+                hour = 0
+            return f"{hour:02d}{minute:02d}"
+        
+        pattern = r'(\d{1,2})[:.](\d{2})'
+        match = re.search(pattern, time_speech)
+        if match:
+            hour = int(match.group(1))
+            minute = int(match.group(2))
+            return f"{hour:02d}{minute:02d}"
+        
+        pattern = r'(\d{1,2})\s*(am|pm)'
+        match = re.search(pattern, time_speech)
+        if match:
+            hour = int(match.group(1))
+            period = match.group(2)
+            if period == 'pm' and hour < 12:
+                hour += 12
+            elif period == 'am' and hour == 12:
+                hour = 0
+            return f"{hour:02d}00"
         
         if 'morning' in time_speech:
             return "0900"
@@ -143,9 +149,8 @@ def parse_speech_time(time_speech):
             return "1400"
         elif 'evening' in time_speech:
             return "1700"
-            
-        return None
         
+        return None
     except Exception as e:
         print(f"Error parsing time speech: {e}")
         return None
@@ -168,9 +173,7 @@ def home():
 @app.route('/twilio-webhook', methods=['POST'])
 def twilio_webhook():
     speech_result = request.form.get('SpeechResult', '')
-    
     intent = classify_intent(speech_result)
-    
     if intent == "book_appointment":
         return jsonify({
             "actions": [
@@ -187,7 +190,7 @@ def twilio_webhook():
             "actions": [
                 {
                     "redirect": {
-                        "method": "POST", 
+                        "method": "POST",
                         "uri": "https://webhooks.twilio.com/v1/Accounts/.../Flows/.../Redirect?FlowEvent=return&result=reschedule"
                     }
                 }
@@ -229,20 +232,21 @@ def check_availability():
         if not formatted_date:
             return jsonify({
                 "available": False,
-                "message": f"Sorry, I didn't understand the date '{date_speech}'. Please say something like 'tomorrow' or 'next Tuesday'."
+                "message": f"Sorry, I didn't understand the date '{date_speech}'. Please say something like 'tomorrow' or 'next Tuesday'.",
+                "attempt": attempt
             })
         
         if not formatted_time:
             return jsonify({
                 "available": False,
-                "message": f"Sorry, I didn't understand the time '{time_speech}'. Please say something like '2:30 PM' or 'fourteen thirty'."
+                "message": f"Sorry, I didn't understand the time '{time_speech}'. Please say something like '2:30 PM' or 'fourteen thirty'.",
+                "attempt": attempt
             })
         
         try:
             month = int(formatted_date[0:2])
             day = int(formatted_date[2:4])
             year = int(formatted_date[4:8])
-            
             hour = int(formatted_time[0:2])
             minute = int(formatted_time[2:4])
             
@@ -251,13 +255,15 @@ def check_availability():
             if requested_datetime < datetime.now():
                 return jsonify({
                     "available": False,
-                    "message": "Appointment time must be in the future. Please choose a later date and time."
+                    "message": "Appointment time must be in the future. Please choose a later date and time.",
+                    "attempt": attempt
                 })
             
             if hour < 9 or hour >= 17:
                 return jsonify({
                     "available": False,
-                    "message": "Clinic hours are 9 AM to 5 PM. Please choose a time within these hours."
+                    "message": "Clinic hours are 9 AM to 5 PM. Please choose a time within these hours.",
+                    "attempt": attempt
                 })
             
             import random
@@ -267,42 +273,37 @@ def check_availability():
             
             alt1_datetime = requested_datetime + timedelta(days=1)
             alt1_datetime = alt1_datetime.replace(hour=10, minute=0)
-            
-            suggestion1 = {
+            suggestions.append({
                 "day_name": alt1_datetime.strftime("%B %d, %Y"),
                 "time": alt1_datetime.strftime("%I:%M %p"),
                 "raw_date": alt1_datetime.strftime("%m%d%Y"),
                 "raw_time": alt1_datetime.strftime("%H%M")
-            }
-            suggestions.append(suggestion1)
+            })
             
             alt2_datetime = requested_datetime + timedelta(days=2)
             alt2_datetime = alt2_datetime.replace(hour=14, minute=30)
-            
-            suggestion2 = {
+            suggestions.append({
                 "day_name": alt2_datetime.strftime("%B %d, %Y"),
                 "time": alt2_datetime.strftime("%I:%M %p"),
                 "raw_date": alt2_datetime.strftime("%m%d%Y"),
                 "raw_time": alt2_datetime.strftime("%H%M")
-            }
-            suggestions.append(suggestion2)
+            })
             
             alt3_datetime = requested_datetime + timedelta(days=3)
             alt3_datetime = alt3_datetime.replace(hour=11, minute=0)
-            
-            suggestion3 = {
+            suggestions.append({
                 "day_name": alt3_datetime.strftime("%B %d, %Y"),
                 "time": alt3_datetime.strftime("%I:%M %p"),
                 "raw_date": alt3_datetime.strftime("%m%d%Y"),
                 "raw_time": alt3_datetime.strftime("%H%M")
-            }
-            suggestions.append(suggestion3)
+            })
             
             if is_available:
                 if attempt == 0:
+                    message = f"The selected time on {requested_datetime.strftime('%B %d')} at {requested_datetime.strftime('%I:%M %p')} is available. Say yes to confirm this slot or next to hear another option."
                     return jsonify({
                         "available": True,
-                        "message": f"The selected time on {requested_datetime.strftime('%B %d')} at {requested_datetime.strftime('%I:%M %p')} is available. Say yes to confirm this slot or next to hear another option.",
+                        "message": message,
                         "formatted_date": requested_datetime.strftime("%B %d, %Y"),
                         "formatted_time": requested_datetime.strftime("%I:%M %p"),
                         "raw_date": formatted_date,
@@ -311,9 +312,10 @@ def check_availability():
                         "attempt": attempt
                     })
                 elif attempt == 1:
+                    message = f"Another option is at {suggestions[0]['time']} on {suggestions[0]['day_name']}. Say yes to book this slot or next to hear another option."
                     return jsonify({
                         "available": True,
-                        "message": f"Another option is at {suggestion1['time']} on {suggestion1['day_name']}. Say yes to book this slot or next to hear another option.",
+                        "message": message,
                         "formatted_date": requested_datetime.strftime("%B %d, %Y"),
                         "formatted_time": requested_datetime.strftime("%I:%M %p"),
                         "raw_date": formatted_date,
@@ -322,9 +324,10 @@ def check_availability():
                         "attempt": attempt
                     })
                 elif attempt == 2:
+                    message = f"We also have a slot at {suggestions[1]['time']} on {suggestions[1]['day_name']}. Say yes to book this slot or next to hear one more option."
                     return jsonify({
                         "available": True,
-                        "message": f"We also have a slot at {suggestion2['time']} on {suggestion2['day_name']}. Say yes to book this slot or next to hear one more option.",
+                        "message": message,
                         "formatted_date": requested_datetime.strftime("%B %d, %Y"),
                         "formatted_time": requested_datetime.strftime("%I:%M %p"),
                         "raw_date": formatted_date,
@@ -333,9 +336,10 @@ def check_availability():
                         "attempt": attempt
                     })
                 else:
+                    message = f"One more option at {suggestions[2]['time']} on {suggestions[2]['day_name']}. Say yes to book this slot or we'll end the call."
                     return jsonify({
                         "available": True,
-                        "message": f"One more option at {suggestion3['time']} on {suggestion3['day_name']}. Say yes to book this slot or we'll end the call.",
+                        "message": message,
                         "formatted_date": requested_datetime.strftime("%B %d, %Y"),
                         "formatted_time": requested_datetime.strftime("%I:%M %p"),
                         "raw_date": formatted_date,
@@ -345,30 +349,34 @@ def check_availability():
                     })
             else:
                 if attempt == 0:
+                    message = f"Sorry, {requested_datetime.strftime('%I:%M %p')} is not available. We have an alternative at {suggestions[0]['time']} on {suggestions[0]['day_name']}. Say yes to book this slot or next to hear another option."
                     return jsonify({
                         "available": False,
-                        "message": f"Sorry, {requested_datetime.strftime('%I:%M %p')} is not available. We have an alternative at {suggestion1['time']} on {suggestion1['day_name']}. Say yes to book this slot or next to hear another option.",
+                        "message": message,
                         "suggestions": suggestions,
                         "attempt": attempt
                     })
                 elif attempt == 1:
+                    message = f"Another option is at {suggestions[1]['time']} on {suggestions[1]['day_name']}. Say yes to book this slot or next to hear another option."
                     return jsonify({
                         "available": False,
-                        "message": f"Another option is at {suggestion2['time']} on {suggestion2['day_name']}. Say yes to book this slot or next to hear another option.",
+                        "message": message,
                         "suggestions": suggestions,
                         "attempt": attempt
                     })
                 elif attempt == 2:
+                    message = f"We also have a slot at {suggestions[2]['time']} on {suggestions[2]['day_name']}. Say yes to book this slot or next to try another day."
                     return jsonify({
                         "available": False,
-                        "message": f"We also have a slot at {suggestion3['time']} on {suggestion3['day_name']}. Say yes to book this slot or next to try another day.",
+                        "message": message,
                         "suggestions": suggestions,
                         "attempt": attempt
                     })
                 else:
+                    message = "We don't have more available slots at the moment. Please call again another day. Goodbye."
                     return jsonify({
                         "available": False,
-                        "message": "We don't have more available slots at the moment. Please call again another day. Goodbye.",
+                        "message": message,
                         "suggestions": suggestions,
                         "attempt": attempt
                     })
@@ -377,15 +385,31 @@ def check_availability():
             print(f"Error parsing formatted date/time: {e}")
             return jsonify({
                 "available": False,
-                "message": "Invalid date or time. Please try again with a different time."
+                "message": "Invalid date or time. Please try again with a different time.",
+                "attempt": attempt
             })
             
     except Exception as e:
         print(f"Error in check_availability: {e}")
         return jsonify({
             "available": False,
-            "message": "Technical error checking availability. Please try again or call the clinic directly."
+            "message": "Technical error checking availability. Please try again or call the clinic directly.",
+            "attempt": attempt
         })
+
+@app.route('/debug-parse', methods=['POST'])
+def debug_parse():
+    date_speech = request.form.get('date', '')
+    time_speech = request.form.get('time', '')
+    formatted_date = parse_speech_date(date_speech)
+    formatted_time = parse_speech_time(time_speech)
+    return jsonify({
+        "input_date": date_speech,
+        "input_time": time_speech,
+        "parsed_date": formatted_date,
+        "parsed_time": formatted_time,
+        "success": formatted_date is not None and formatted_time is not None
+    })
 
 @app.route('/confirm-booking', methods=['POST'])
 def confirm_booking():
@@ -406,7 +430,6 @@ def confirm_booking():
             year = int(date_str[4:8])
             hour = int(time_str[0:2])
             minute = int(time_str[2:4])
-            
             appointment_datetime = datetime(year, month, day, hour, minute)
             formatted_datetime = appointment_datetime.strftime("%Y-%m-%d %H:%M")
         else:

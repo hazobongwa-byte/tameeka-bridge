@@ -309,11 +309,13 @@ def check_availability():
     if is_available:
         formatted_date = requested_datetime.strftime("%A, %B %d")
         formatted_time = requested_datetime.strftime("%I:%M %p")
+        original_display = f"{formatted_date} at {formatted_time}"
         return jsonify({
             'available': True,
-            'message': f"{formatted_date} at {formatted_time} is available. Press 1 to confirm, or 2 to hear alternatives.",
+            'message': f"{original_display} is available. Press 1 to confirm, or 2 to hear alternatives.",
             'raw_date': requested_datetime.strftime("%m%d%Y"),
             'raw_time': requested_datetime.strftime("%H%M"),
+            'original_display': original_display,
             'suggestions': suggestions
         })
     else:

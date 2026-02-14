@@ -230,28 +230,124 @@ def check_availability():
             'message': "I didn't receive the date or time clearly. Please try again."
         })
 
-    time_lower = time_str.lower()
-    available = True
-    message = ""
+    def parse_dtmf_date(digits):
+        digits = digits.strip()
+        if digits.isdigit():
+            if len(digits) == 4:
+                month = int(digits[0:2])
+                day = int(digits[2:4])
+                year = datetime.now().year
+                try:
+                    return datetime(year, month, day)
+                except:
+                    return None
+            elif len(digits) == 8:
+                month = int(digits[0:2])
+                day = int(digits[2:4])
+                year = int(digits[4:8])
+                try:
+                    return datetime(year, month, day)
+                except:
+                    return None
+        return None
 
-    if "morning" in time_lower:
-        available = True
-        message = "Morning slots are available."
-    elif "afternoon" in time_lower:
-        available = True
-        message = "Afternoon slots are available."
-    elif "evening" in time_lower:
-        available = False
-        message = "We are closed in the evening. Please choose a time between 9 AM and 5 PM."
+    def parse_dtmf_time(digits):
+        digits = digits.strip()
+        if digits.isdigit() and len(digits) == 4:
+            hour = int(digits[0:2])
+            minute = int(digits[2:4])
+            if 0 <= hour <= 23 and 0 <= minute <= 59:
+                return hour, minute
+        return None, None
+
+    dtmf_date = parse_dtmf_date(date_str)
+    dtmf_hour, dtmf_minute = parse_dtmf_time(time_str)
+
+    if dtmf_date and dtmf_hour is not None:
+        requested_datetime = dtmf_date.replace(hour=dtmf_hour, minute=dtmf_minute)
     else:
-        available = True
-        message = f"{date_str} at {time_str} seems available. Shall I book it?"
+        parsed_date = parse_speech_date(date_str)
+        parsed_time = parse_speech_time(time_str)
 
-    return jsonify({
-        'available': available,
-        'message': message,
-        'attempt': int(attempt)
-    })
+        if not parsed_date:
+            return jsonify({
+                'available': False,
+                'message': f"Sorry, I didn't understand the date '{date_str}'. Please try again."
+            })
+        if not parsed_time:
+            return jsonify({
+                'available': False,
+                'message': f"Sorry, I didn't understand the time '{time_str}'. Please try again."
+            })
+
+        try:
+            month = int(parsed_date[0:2])
+            day = int(parsed_date[2:4])
+            year = int(parsed_date[4:8])
+            hour = int(parsed_time[0:2])
+            minute = int(parsed_time[2:4])
+            requested_datetime = datetime(year, month, day, hour, minute)
+        except:
+            return jsonify({
+                'available': False,
+                'message': "Invalid date or time format. Please try again."
+            })
+
+    if requested_datetime < datetime.now():
+        return jsonify({
+            'available': False,
+            'message': "Appointment time must be in the future. Please choose a later date and time."
+        })
+
+    hour = requested_datetime.hour
+    if hour < 9 or hour >= 17:
+        if hour < 9:
+            suggestion_hour = 9
+            suggestion_day = requested_datetime
+        else:
+            suggestion_hour = 9
+            suggestion_day = requested_datetime + timedelta(days=1)
+
+        suggestion_datetime = suggestion_day.replace(hour=suggestion_hour, minute=0)
+        suggestion_str = suggestion_datetime.strftime("%A at %I:%M %p")
+
+        return jsonify({
+            'available': False,
+            'message': f"Clinic hours are 9 AM to 5 PM. The next available slot is {suggestion_str}. Shall I book that?",
+            'suggestions': [{
+                'date': suggestion_datetime.strftime("%m%d%Y"),
+                'time': suggestion_datetime.strftime("%H%M")
+            }]
+        })
+
+    import random
+    is_available = random.random() > 0.3
+
+    if is_available:
+        formatted_date = requested_datetime.strftime("%A, %B %d")
+        formatted_time = requested_datetime.strftime("%I:%M %p")
+        return jsonify({
+            'available': True,
+            'message': f"{formatted_date} at {formatted_time} is available. Press 1 to confirm, or 2 to hear alternatives.",
+            'raw_date': requested_datetime.strftime("%m%d%Y"),
+            'raw_time': requested_datetime.strftime("%H%M")
+        })
+    else:
+        alt1 = requested_datetime + timedelta(hours=2)
+        if alt1.hour >= 17:
+            alt1 = (requested_datetime + timedelta(days=1)).replace(hour=9, minute=0)
+
+        alt2 = requested_datetime + timedelta(days=1)
+        alt2 = alt2.replace(hour=9, minute=0)
+
+        return jsonify({
+            'available': False,
+            'message': f"Sorry, {requested_datetime.strftime('%I:%M %p')} is not available. We have {alt1.strftime('%A at %I:%M %p')} or {alt2.strftime('%A at %I:%M %p')}. Press 1 for the first, 2 for the second, or 3 to try a different time.",
+            'suggestions': [
+                {'date': alt1.strftime("%m%d%Y"), 'time': alt1.strftime("%H%M")},
+                {'date': alt2.strftime("%m%d%Y"), 'time': alt2.strftime("%H%M")}
+            ]
+        })
 
 @app.route('/debug-parse', methods=['POST'])
 def debug_parse():

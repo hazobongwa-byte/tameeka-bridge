@@ -272,29 +272,39 @@ def check_availability():
         })
 
     hour = requested_datetime.hour
-    if hour < 9 or hour >= 17:
-        if hour < 9:
-            suggestion_hour = 9
-            suggestion_day = requested_datetime
-        else:
-            suggestion_hour = 9
-            suggestion_day = requested_datetime + timedelta(days=1)
-
-        suggestion_datetime = suggestion_day.replace(hour=suggestion_hour, minute=0)
-        suggestion_str = suggestion_datetime.strftime("%A at %I:%M %p")
-
-        return jsonify({
-            'available': False,
-            'message': f"Clinic hours are 9 AM to 5 PM. The next available slot is {suggestion_str}. Shall I book that?",
-            'suggestions': [{
-                'date': suggestion_datetime.strftime("%m%d%Y"),
-                'time': suggestion_datetime.strftime("%H%M"),
-                'display': suggestion_str
-            }]
-        })
-
+    within_hours = 9 <= hour < 17
     import random
-    is_available = random.random() > 0.3
+    if within_hours:
+        is_available = random.random() > 0.3
+    else:
+        is_available = False
+
+    def next_available_slot(base_time, offset_hours=2):
+        candidate = base_time + timedelta(hours=offset_hours)
+        if candidate.hour < 9:
+            candidate = candidate.replace(hour=9, minute=0)
+        elif candidate.hour >= 17:
+            candidate = candidate.replace(hour=9, minute=0) + timedelta(days=1)
+        while candidate < datetime.now():
+            candidate += timedelta(days=1)
+            candidate = candidate.replace(hour=9, minute=0)
+        return candidate
+
+    alt1 = next_available_slot(requested_datetime, 2)
+    alt2 = next_available_slot(requested_datetime, 24)
+
+    suggestions = [
+        {
+            'date': alt1.strftime("%m%d%Y"),
+            'time': alt1.strftime("%H%M"),
+            'display': alt1.strftime("%A at %I:%M %p")
+        },
+        {
+            'date': alt2.strftime("%m%d%Y"),
+            'time': alt2.strftime("%H%M"),
+            'display': alt2.strftime("%A at %I:%M %p")
+        }
+    ]
 
     if is_available:
         formatted_date = requested_datetime.strftime("%A, %B %d")
@@ -303,23 +313,14 @@ def check_availability():
             'available': True,
             'message': f"{formatted_date} at {formatted_time} is available. Press 1 to confirm, or 2 to hear alternatives.",
             'raw_date': requested_datetime.strftime("%m%d%Y"),
-            'raw_time': requested_datetime.strftime("%H%M")
+            'raw_time': requested_datetime.strftime("%H%M"),
+            'suggestions': suggestions
         })
     else:
-        alt1 = requested_datetime + timedelta(hours=2)
-        if alt1.hour >= 17:
-            alt1 = (requested_datetime + timedelta(days=1)).replace(hour=9, minute=0)
-
-        alt2 = requested_datetime + timedelta(days=1)
-        alt2 = alt2.replace(hour=9, minute=0)
-
         return jsonify({
             'available': False,
-            'message': f"Sorry, {requested_datetime.strftime('%I:%M %p')} is not available. We have {alt1.strftime('%A at %I:%M %p')} or {alt2.strftime('%A at %I:%M %p')}. Press 1 for the first, 2 for the second, or 3 to try a different time.",
-            'suggestions': [
-                {'date': alt1.strftime("%m%d%Y"), 'time': alt1.strftime("%H%M"), 'display': alt1.strftime("%A at %I:%M %p")},
-                {'date': alt2.strftime("%m%d%Y"), 'time': alt2.strftime("%H%M"), 'display': alt2.strftime("%A at %I:%M %p")}
-            ]
+            'message': f"Sorry, {requested_datetime.strftime('%I:%M %p')} is not available. We have {suggestions[0]['display']} or {suggestions[1]['display']}. Press 1 for the first, 2 for the second, or 3 to try a different time.",
+            'suggestions': suggestions
         })
 
 @app.route('/debug-parse', methods=['POST'])
